@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onShow } from "@dcloudio/uni-app";
+import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { acceptOrder, kitchenOrders } from "@/api/order";
 import TabBar from "@/components/TabBar.vue";
@@ -17,6 +17,8 @@ onShow(async () => {
     uni.reLaunch({ url: "/pages/login/index" });
     return;
   }
+  // 进了工作台，底部导航就该是厨师那一套
+  userStore.setViewMode("kitchen");
   if (!userStore.user) {
     try {
       await userStore.fetchInfo();
@@ -25,6 +27,11 @@ onShow(async () => {
     }
   }
   loadOrders();
+});
+
+onPullDownRefresh(async () => {
+  await loadOrders();
+  uni.stopPullDownRefresh();
 });
 
 async function loadOrders() {
@@ -63,13 +70,13 @@ function waitText(order: Order): string {
 </script>
 
 <template>
-  <view class="kitchen">
+  <view class="app-fixed">
     <view class="header">
       <text class="header__title">待接单 · {{ orders.length }} 单</text>
       <text class="header__sub">{{ userStore.nickName }}，今天辛苦了</text>
     </view>
 
-    <view class="kitchen__body">
+    <view class="app-fixed__scroll kitchen-scroll">
       <view v-for="order in orders" :key="order.orderId" class="card order">
         <view class="row-between">
           <text class="order__who">{{ order.userName || "家人" }} 点的单</text>
@@ -100,16 +107,12 @@ function waitText(order: Order): string {
 </template>
 
 <style lang="scss" scoped>
-.kitchen {
-  min-height: 100vh;
-  background-color: $meal-bg;
-  padding-bottom: 200rpx;
-}
-
 .header {
+  flex: 0 0 auto;
   background-color: $meal-primary;
   color: #fff;
-  padding: 60rpx 28rpx 32rpx;
+  /* 本页是自定义导航栏（navigationStyle: custom），App 端要给状态栏留出高度 */
+  padding: calc(60rpx + var(--status-bar-height)) 28rpx 32rpx;
   border-radius: 0 0 36rpx 36rpx;
 }
 
@@ -126,8 +129,8 @@ function waitText(order: Order): string {
   margin-top: 8rpx;
 }
 
-.kitchen__body {
-  padding: 24rpx;
+.kitchen-scroll {
+  padding: 24rpx 24rpx 200rpx;
 }
 
 .order__who {

@@ -5,6 +5,7 @@ import { myOrders } from "@/api/order";
 import { myProposals } from "@/api/proposal";
 import { myReviews } from "@/api/review";
 import TabBar from "@/components/TabBar.vue";
+import { confirm } from "@/composables/useDialog";
 import { useUserStore } from "@/store/user";
 
 const userStore = useUserStore();
@@ -48,20 +49,20 @@ function go(url: string) {
 }
 
 function toEaterView() {
-  uni.switchTab({ url: "/pages/menu/index" });
+  uni.reLaunch({ url: "/pages/menu/index" });
+}
+
+function toKitchen() {
+  uni.reLaunch({ url: "/pages/kitchen/waiting" });
 }
 
 function doLogout() {
-  uni.showModal({
-    title: "退出登录",
-    content: "确定要退出登录吗？",
-    success: async (res) => {
-      if (!res.confirm) {
-        return;
-      }
-      await userStore.logout();
-      uni.reLaunch({ url: "/pages/login/index" });
-    },
+  confirm("确定要退出登录吗？", "退出登录").then(async (ok) => {
+    if (!ok) {
+      return;
+    }
+    await userStore.logout();
+    uni.reLaunch({ url: "/pages/login/index" });
   });
 }
 
@@ -72,71 +73,73 @@ const avatarText = (): string => {
 </script>
 
 <template>
-  <view class="page-body page-body--tabbed">
-    <view class="card profile">
-      <view class="avatar">{{ avatarText() }}</view>
-      <view class="profile__main">
-        <view class="profile__name-row">
-          <text class="profile__name">{{ userStore.nickName || "未登录" }}</text>
-          <text v-for="label in userStore.roleLabels" :key="label" class="tag">{{ label }}</text>
+  <view class="app-fixed">
+    <view class="app-fixed__scroll app-fixed__scroll--tabbed">
+      <view class="card profile">
+        <view class="avatar">{{ avatarText() }}</view>
+        <view class="profile__main">
+          <view class="profile__name-row">
+            <text class="profile__name">{{ userStore.nickName || "未登录" }}</text>
+            <text v-for="label in userStore.roleLabels" :key="label" class="tag">{{ label }}</text>
+          </view>
+          <text class="tiny">家庭 · {{ userStore.user?.deptName || "我的家庭" }} · {{ userStore.user?.userName || "" }}</text>
         </view>
-        <text class="tiny">家庭成员 · {{ userStore.user?.userName || "" }}</text>
       </view>
-    </view>
 
-    <view class="stats">
-      <view class="stat" @click="go('/pages/order/list')">
-        <text class="stat__value">{{ stats.orders }}</text>
-        <text class="tiny">我的订单</text>
+      <view class="stats">
+        <view class="stat" @click="go('/pages/order/list')">
+          <text class="stat__value">{{ stats.orders }}</text>
+          <text class="tiny">我的订单</text>
+        </view>
+        <view class="stat" @click="go('/pages/review/list')">
+          <text class="stat__value">{{ stats.reviews }}</text>
+          <text class="tiny">我的评价</text>
+        </view>
+        <view class="stat" @click="go('/pages/proposal/list')">
+          <text class="stat__value">{{ stats.proposals }}</text>
+          <text class="tiny">我的提案</text>
+        </view>
       </view>
-      <view class="stat" @click="go('/pages/review/list')">
-        <text class="stat__value">{{ stats.reviews }}</text>
-        <text class="tiny">我的评价</text>
-      </view>
-      <view class="stat" @click="go('/pages/proposal/list')">
-        <text class="stat__value">{{ stats.proposals }}</text>
-        <text class="tiny">我的提案</text>
-      </view>
-    </view>
 
-    <view class="menu">
-      <view class="menu__item" @click="go('/pages/order/list')">
-        <text class="menu__text">我的订单</text>
-        <text class="chev">›</text>
+      <view class="menu">
+        <view class="menu__item" @click="go('/pages/order/list')">
+          <text class="menu__text">我的订单</text>
+          <text class="chev">›</text>
+        </view>
+        <view class="menu__item" @click="go('/pages/review/list')">
+          <text class="menu__text">我的评价</text>
+          <text class="chev">›</text>
+        </view>
+        <view class="menu__item" @click="go('/pages/proposal/list')">
+          <text class="menu__text">我的提案</text>
+          <text class="chev">›</text>
+        </view>
+        <view class="menu__item" @click="go('/pages/proposal/edit')">
+          <text class="menu__text">提交新菜</text>
+          <text class="chev">›</text>
+        </view>
       </view>
-      <view class="menu__item" @click="go('/pages/review/list')">
-        <text class="menu__text">我的评价</text>
-        <text class="chev">›</text>
-      </view>
-      <view class="menu__item" @click="go('/pages/proposal/list')">
-        <text class="menu__text">我的提案</text>
-        <text class="chev">›</text>
-      </view>
-      <view class="menu__item" @click="go('/pages/proposal/edit')">
-        <text class="menu__text">提交新菜</text>
-        <text class="chev">›</text>
-      </view>
-    </view>
 
-    <view class="menu">
-      <view v-if="userStore.canKitchen" class="menu__item" @click="uni.switchTab({ url: '/pages/kitchen/waiting' })">
-        <text class="menu__text">厨师工作台</text>
-        <text class="chev">›</text>
+      <view class="menu">
+        <view v-if="userStore.canKitchen && userStore.tabMode === 'eater'" class="menu__item" @click="toKitchen">
+          <text class="menu__text">厨师工作台</text>
+          <text class="chev">›</text>
+        </view>
+        <view v-if="userStore.canKitchen && userStore.tabMode === 'kitchen'" class="menu__item" @click="toEaterView">
+          <text class="menu__text">去点餐</text>
+          <text class="chev">›</text>
+        </view>
+        <view v-if="userStore.isManager" class="menu__item">
+          <text class="menu__text">家庭与成员</text>
+          <text class="tiny">在管理端维护</text>
+        </view>
       </view>
-      <view v-if="userStore.canKitchen" class="menu__item" @click="toEaterView">
-        <text class="menu__text">去点餐</text>
-        <text class="chev">›</text>
-      </view>
-      <view v-if="userStore.isManager" class="menu__item">
-        <text class="menu__text">家庭与成员</text>
-        <text class="tiny">在管理端维护</text>
-      </view>
-    </view>
 
-    <view class="menu">
-      <view class="menu__item" @click="doLogout">
-        <text class="menu__text menu__text--danger">退出登录</text>
-        <text class="chev">›</text>
+      <view class="menu">
+        <view class="menu__item" @click="doLogout">
+          <text class="menu__text menu__text--danger">退出登录</text>
+          <text class="chev">›</text>
+        </view>
       </view>
     </view>
 

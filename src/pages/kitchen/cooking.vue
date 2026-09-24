@@ -1,22 +1,27 @@
 <script setup lang="ts">
 import { onShow } from "@dcloudio/uni-app";
-import { ref } from "vue";
+import { reactive, ref } from "vue";
 import { finishOrder, kitchenOrders } from "@/api/order";
 import TabBar from "@/components/TabBar.vue";
 import { useUserStore } from "@/store/user";
-import { ORDER_STATUS, type Order } from "@/types";
+import { ORDER_STATUS, type Order, type OrderItem } from "@/types";
+
+const COOK_DONE_KEY = "meal-cook-done";
 
 const userStore = useUserStore();
 
 const orders = ref<Order[]>([]);
 const loading = ref(false);
-const acting = ref(0);
+/** orderId -> 已标记完成的 itemId 列表（仅存本地） */
+const doneMap = reactive<Record<number, number[]>>({});
 
 onShow(async () => {
   if (!userStore.isLogin) {
     uni.reLaunch({ url: "/pages/login/index" });
     return;
   }
+  // 进了工作台，底部导航就该是厨师那一套
+  userStore.setViewMode("kitchen");
   if (!userStore.user) {
     try {
       await userStore.fetchInfo();
@@ -24,6 +29,7 @@ onShow(async () => {
       return;
     }
   }
+  loadDoneMap();
   loadOrders();
 });
 
@@ -39,20 +45,68 @@ async function loadOrders() {
   }
 }
 
-async function doFinish(order: Order) {
-  if (acting.value) {
+function loadDoneMap() {
+  const raw = uni.getStorageSync(COOK_DONE_KEY);
+  try {
+    const parsed = raw ? JSON.parse(raw) : {};
+    Object.assign(doneMap, parsed && typeof parsed === "object" ? parsed : {});
+  } catch (e) {
+    // 损坏则忽略，当作尚未标记
+  }
+}
+
+function persistDoneMap() {
+  uni.setStorageSync(COOK_DONE_KEY, JSON.stringify(doneMap));
+}
+
+function isDone(order: Order, item: OrderItem): boolean {
+  const list = doneMap[order.orderId];
+  return !!list && !!item.itemId && list.includes(item.itemId);
+}
+
+function doneCount(order: Order): number {
+  const list = doneMap[order.orderId] || [];
+  const ids = new Set((order.items || []).map((i) => i.itemId).filter(Boolean) as number[]);
+  return list.filter((id) => ids.has(id)).length;
+}
+
+function totalCount(order: Order): number {
+  return (order.items || []).length;
+}
+
+async function toggleDone(order: Order, item: OrderItem) {
+  if (!item.itemId) {
     return;
   }
-  acting.value = order.orderId;
-  try {
-    await finishOrder(order.orderId);
-    uni.showToast({ title: "已完成", icon: "none" });
-    loadOrders();
-  } catch (e) {
-    // 提示已由请求层给出
-  } finally {
-    acting.value = 0;
+  const list = doneMap[order.orderId] ? [...doneMap[order.orderId]] : [];
+  const idx = list.indexOf(item.itemId);
+  if (idx >= 0) {
+    list.splice(idx, 1);
+  } else {
+    list.push(item.itemId);
   }
+  doneMap[order.orderId] = list;
+  persistDoneMap();
+
+  // 整单所有菜品都标记完成，自动提交完成（仅本地判断，不逐菜调接口）
+  if (totalCount(order) > 0 && doneCount(order) === totalCount(order)) {
+    try {
+      await finishOrder(order.orderId);
+      uni.showToast({ title: "整单完成，已通知点餐人", icon: "none" });
+      delete doneMap[order.orderId];
+      persistDoneMap();
+      loadOrders();
+    } catch (e) {
+      // 提交失败不影响本地标记，提示已由请求层给出
+    }
+  }
+}
+
+function openDish(item: OrderItem) {
+  if (!item.dishId) {
+    return;
+  }
+  uni.navigateTo({ url: `/pages/menu/detail?dishId=${item.dishId}` });
 }
 
 /** 已制作时长由后端计算返回，前端不自己计时 */
@@ -63,32 +117,43 @@ function cookText(order: Order): string {
 </script>
 
 <template>
-  <view class="kitchen">
+  <view class="app-fixed">
     <view class="header">
       <text class="header__title">制作中 · {{ orders.length }} 单</text>
-      <text class="header__sub">做完记得点「完成」，点餐人会收到提醒</text>
+      <text class="header__sub">逐道菜点完成，全部备好自动出餐</text>
     </view>
 
-    <view class="kitchen__body">
+    <view class="app-fixed__scroll kitchen-scroll">
       <view v-for="order in orders" :key="order.orderId" class="card order">
         <view class="row-between">
           <text class="order__who">{{ order.userName || "家人" }} 的订单</text>
           <text class="timer">{{ cookText(order) }}</text>
         </view>
 
-        <view v-for="item in order.items || []" :key="item.itemId" class="item">
+        <view
+          v-for="item in order.items || []"
+          :key="item.itemId"
+          class="item"
+          :class="{ 'item--done': isDone(order, item) }"
+          @click="openDish(item)"
+        >
           <view class="item__cover">{{ item.dishName }}</view>
           <view class="item__main">
             <text class="item__name">{{ item.dishName }} × {{ item.count }}</text>
             <text v-if="item.remark" class="tiny">{{ item.remark }}</text>
           </view>
+          <view
+            class="item__done"
+            :class="{ 'item__done--on': isDone(order, item) }"
+            @click.stop="toggleDone(order, item)"
+          >
+            <text v-if="isDone(order, item)">✓</text>
+          </view>
         </view>
 
         <view v-if="order.orderRemark" class="note">整体备注：{{ order.orderRemark }}</view>
 
-        <view class="order__actions">
-          <view class="btn" @click="doFinish(order)">标记完成</view>
-        </view>
+        <view class="order__progress">已备 {{ doneCount(order) }}/{{ totalCount(order) }}</view>
       </view>
 
       <view v-if="!orders.length" class="empty">{{ loading ? "加载中…" : "暂时没有制作中的订单" }}</view>
@@ -99,16 +164,12 @@ function cookText(order: Order): string {
 </template>
 
 <style lang="scss" scoped>
-.kitchen {
-  min-height: 100vh;
-  background-color: $meal-bg;
-  padding-bottom: 200rpx;
-}
-
 .header {
+  flex: 0 0 auto;
   background: linear-gradient(120deg, $meal-primary, $meal-primary-2);
   color: #fff;
-  padding: 60rpx 28rpx 32rpx;
+  /* 本页是自定义导航栏（navigationStyle: custom），App 端要给状态栏留出高度 */
+  padding: calc(60rpx + var(--status-bar-height)) 28rpx 32rpx;
   border-radius: 0 0 36rpx 36rpx;
 }
 
@@ -125,8 +186,8 @@ function cookText(order: Order): string {
   margin-top: 8rpx;
 }
 
-.kitchen__body {
-  padding: 24rpx;
+.kitchen-scroll {
+  padding: 24rpx 24rpx 200rpx;
 }
 
 .order {
@@ -153,6 +214,12 @@ function cookText(order: Order): string {
   align-items: center;
   gap: 16rpx;
   margin-top: 18rpx;
+  padding: 8rpx;
+  border-radius: 16rpx;
+}
+
+.item--done {
+  opacity: 0.55;
 }
 
 .item__cover {
@@ -191,20 +258,28 @@ function cookText(order: Order): string {
   font-size: 24rpx;
 }
 
-.order__actions {
-  display: flex;
-  margin-top: 24rpx;
+/* 单道菜的完成勾选 */
+.item__done {
+  flex: 0 0 auto;
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  border-radius: 50%;
+  border: 1rpx solid $meal-line;
+  color: #fff;
+  font-size: 28rpx;
 }
 
-.btn {
-  flex: 1;
-  height: 76rpx;
-  line-height: 76rpx;
-  text-align: center;
-  border-radius: 999rpx;
-  background-color: $meal-primary;
-  color: #fff;
-  font-size: 26rpx;
-  font-weight: 600;
+.item__done--on {
+  background-color: $meal-success;
+  border-color: $meal-success;
+}
+
+.order__progress {
+  margin-top: 20rpx;
+  font-size: 22rpx;
+  color: $meal-text-2;
+  text-align: right;
 }
 </style>

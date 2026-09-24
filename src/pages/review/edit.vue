@@ -32,6 +32,11 @@ onLoad(async (options) => {
   } catch (e) {
     order.value = null;
   }
+  // 一单一评：从订单列表点进来时入口已经收掉了，这里再兜一次深链进来的情况
+  if (order.value?.reviewed) {
+    uni.showToast({ title: "这张订单已经评价过了", icon: "none" });
+    setTimeout(() => uni.navigateBack(), 900);
+  }
 });
 
 const scoreText = computed(() => SCORE_TEXT[score.value] || "");
@@ -98,12 +103,23 @@ async function submit() {
 
 <template>
   <view class="page-body">
-    <view v-if="order" class="card head">
-      <view class="head__cover">{{ order.items?.[0]?.dishName || "订单" }}</view>
-      <view class="head__main">
+    <view v-if="order" class="card">
+      <view class="row-between">
         <text class="head__no">{{ order.orderNo }}</text>
-        <text class="tiny">{{ order.createTime }} · {{ order.totalCount }} 份 · {{ (order.items || []).length }} 道菜</text>
+        <text class="tiny">{{ order.createTime }}</text>
       </view>
+      <view class="head__items">
+        <view v-for="item in order.items || []" :key="item.itemId" class="item">
+          <image v-if="item.dishCover" class="item__cover" :src="item.dishCover" mode="aspectFill" />
+          <view v-else class="item__cover item__cover--ph">{{ item.dishName }}</view>
+          <view class="item__main">
+            <text class="item__name">{{ item.dishName }}</text>
+            <text v-if="item.remark" class="tiny">{{ item.remark }}</text>
+          </view>
+          <text class="muted">× {{ item.count }}</text>
+        </view>
+      </view>
+      <text class="tiny">共 {{ order.totalCount }} 份 · {{ (order.items || []).length }} 道菜</text>
     </view>
 
     <view class="card score">
@@ -145,7 +161,7 @@ async function submit() {
 
     <view class="card row-between">
       <text class="menu__text">匿名评价</text>
-      <switch :checked="anonymous" color="#FF6B35" @change="anonymous = ($event.detail as any).value" />
+      <switch :checked="anonymous" color="#FF6B35" @change="anonymous = (($event as any).detail as any).value" />
     </view>
 
     <view class="submit" :class="{ 'submit--disabled': submitting }" @click="submit">
@@ -155,17 +171,36 @@ async function submit() {
 </template>
 
 <style lang="scss" scoped>
-.head {
+.head__no {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: $meal-text;
+}
+
+.head__items {
+  margin: 16rpx 0 12rpx;
+}
+
+.item {
   display: flex;
   align-items: center;
   gap: 20rpx;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid $meal-line;
 }
 
-.head__cover {
+.item:last-child {
+  border-bottom: none;
+}
+
+.item__cover {
   width: 88rpx;
   height: 88rpx;
-  flex: 0 0 88rpx;
   border-radius: 18rpx;
+  flex: 0 0 88rpx;
+}
+
+.item__cover--ph {
   background: linear-gradient(135deg, #ffc49b, #ff7a45);
   color: #fff;
   font-size: 20rpx;
@@ -176,14 +211,14 @@ async function submit() {
   padding: 0 6rpx;
 }
 
-.head__main {
+.item__main {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 6rpx;
 }
 
-.head__no {
+.item__name {
   font-size: 26rpx;
   font-weight: 600;
   color: $meal-text;

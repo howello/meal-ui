@@ -5,8 +5,13 @@ import { getCaptcha, login, type CaptchaInfo } from "@/api/auth";
 import { useUserStore } from "@/store/user";
 import { svgIcon } from "@/utils/icons";
 
-const LOGIN_NAME_KEY = "meal-login-name";
+const LOGIN_REMEMBER_KEY = "meal-login-remember";
 const REDIRECT_KEY = "meal-redirect";
+
+interface RememberedLogin {
+  username: string;
+  password: string;
+}
 
 const userStore = useUserStore();
 
@@ -23,15 +28,51 @@ const form = reactive({
 const captcha = ref<CaptchaInfo | null>(null);
 const turnstileToken = ref("");
 const submitting = ref(false);
-const rememberName = ref(true);
+const rememberPwd = ref(true);
 
 onLoad(() => {
-  const saved = uni.getStorageSync(LOGIN_NAME_KEY);
-  if (saved) {
-    form.username = saved;
+  const remembered = parseRemembered(uni.getStorageSync(LOGIN_REMEMBER_KEY));
+  if (remembered) {
+    form.username = remembered.username;
+    form.password = remembered.password;
   }
   loadCaptcha();
 });
+
+/**
+ * 读取本地记住的账号密码
+ *
+ * 存在本地的是明文（uni storage 本身没有加密能力）。这是个家庭内部使用的小应用，
+ * 换取「打开就能登」的便利；真要更安全得换成刷新令牌方案。
+ */
+function parseRemembered(raw: unknown): RememberedLogin | null {
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (parsed && typeof parsed.username === "string") {
+      return {
+        username: parsed.username,
+        password: typeof parsed.password === "string" ? parsed.password : "",
+      };
+    }
+  } catch (e) {
+    // 存储被写坏时当作没记住过
+  }
+  return null;
+}
+
+function saveRemembered() {
+  if (rememberPwd.value) {
+    uni.setStorageSync(
+      LOGIN_REMEMBER_KEY,
+      JSON.stringify({ username: form.username, password: form.password }),
+    );
+  } else {
+    uni.removeStorageSync(LOGIN_REMEMBER_KEY);
+  }
+}
 
 async function loadCaptcha() {
   try {
@@ -133,11 +174,7 @@ async function submit() {
       client: "meal",
     });
     userStore.setToken(res.token);
-    if (rememberName.value) {
-      uni.setStorageSync(LOGIN_NAME_KEY, form.username);
-    } else {
-      uni.removeStorageSync(LOGIN_NAME_KEY);
-    }
+    saveRemembered();
     await userStore.fetchInfo();
     goNext();
   } catch (e) {
@@ -190,23 +227,25 @@ function goNext() {
     </view>
 
     <view class="login__row">
-      <view class="login__remember" @click="rememberName = !rememberName">
-        <text class="login__checkbox" :class="{ 'login__checkbox--on': rememberName }">
-          {{ rememberName ? "✓" : "" }}
+      <view class="login__remember" @click="rememberPwd = !rememberPwd">
+        <text class="login__checkbox" :class="{ 'login__checkbox--on': rememberPwd }">
+          {{ rememberPwd ? "✓" : "" }}
         </text>
-        <text class="tiny">记住账号</text>
+        <text class="tiny">记住密码</text>
       </view>
       <text class="tiny">忘记密码请联系家庭管理员</text>
     </view>
-
-    <view class="login__note">登录一次长期有效，不用反复登录</view>
   </view>
 </template>
 
 <style lang="scss" scoped>
 .login {
-  min-height: 100vh;
-  padding: 160rpx 52rpx 60rpx;
+  height: 100vh;
+  /* 内容不足一屏时整页不滚动；键盘弹起等极端情况允许内部滚动 */
+  overflow-y: auto;
+  /* 本页是自定义导航栏（navigationStyle: custom），App 端要给状态栏留出高度 */
+  /* 本页是自定义导航栏（navigationStyle: custom），App 端要给状态栏留出高度 */
+  padding: calc(160rpx + var(--status-bar-height)) 52rpx 60rpx;
   background-color: $meal-bg;
   display: flex;
   flex-direction: column;
@@ -330,15 +369,5 @@ function goNext() {
   background-color: $meal-primary;
   border-color: $meal-primary;
   color: #fff;
-}
-
-.login__note {
-  margin-top: 52rpx;
-  padding: 20rpx 24rpx;
-  border-radius: 20rpx;
-  background-color: $meal-primary-soft;
-  color: $meal-primary;
-  font-size: 24rpx;
-  text-align: center;
 }
 </style>

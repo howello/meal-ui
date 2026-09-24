@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { onShow } from "@dcloudio/uni-app";
+import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { listCategory, listDish } from "@/api/dish";
 import TabBar from "@/components/TabBar.vue";
+import { useCartStore } from "@/store/cart";
 import { useUserStore } from "@/store/user";
+import { svgIcon } from "@/utils/icons";
 import type { Category, Dish } from "@/types";
 
 const userStore = useUserStore();
+const cartStore = useCartStore();
 
 const categories = ref<Category[]>([]);
 const dishes = ref<Dish[]>([]);
@@ -14,11 +17,15 @@ const activeCategory = ref<number | undefined>(undefined);
 const keyword = ref("");
 const loading = ref(false);
 
+const cartIcon = svgIcon("cart", "#FFFFFF");
+
 onShow(async () => {
   if (!userStore.isLogin) {
     uni.reLaunch({ url: "/pages/login/index" });
     return;
   }
+  // 进了点餐区，底部导航就该是点餐那一套
+  userStore.setViewMode("eater");
   if (!userStore.user) {
     try {
       await userStore.fetchInfo();
@@ -28,6 +35,11 @@ onShow(async () => {
   }
   await loadCategories();
   await loadDishes();
+});
+
+onPullDownRefresh(async () => {
+  await Promise.all([loadCategories(), loadDishes()]);
+  uni.stopPullDownRefresh();
 });
 
 async function loadCategories() {
@@ -67,6 +79,16 @@ function openDish(dish: Dish) {
   uni.navigateTo({ url: `/pages/menu/detail?dishId=${dish.dishId}` });
 }
 
+/** 一键加购：不进详情页，直接落一份进购物车 */
+function addToCart(dish: Dish) {
+  cartStore.add(dish, 1);
+  uni.showToast({ title: `已加入 ${dish.name}`, icon: "none" });
+}
+
+function goCart() {
+  uni.navigateTo({ url: "/pages/cart/index" });
+}
+
 function tagList(dish: Dish): string[] {
   if (!dish.tags) {
     return [];
@@ -80,54 +102,74 @@ function tagList(dish: Dish): string[] {
 </script>
 
 <template>
-  <view class="page-body page-body--tabbed">
-    <view class="search">
-      <input
-        v-model="keyword"
-        class="search__input"
-        placeholder="搜索菜名 / 食材"
-        placeholder-class="search__ph"
-        confirm-type="search"
-        @confirm="onSearch"
-      />
-      <text class="search__btn" @click="onSearch">搜索</text>
+  <view class="app-fixed">
+    <view class="app-fixed__head">
+      <view class="search">
+        <input
+          v-model="keyword"
+          class="search__input"
+          placeholder="搜索菜名 / 食材"
+          placeholder-class="search__ph"
+          confirm-type="search"
+          @confirm="onSearch"
+        />
+        <text class="search__btn" @click="onSearch">搜索</text>
+      </view>
+
+      <scroll-view scroll-x class="chips">
+        <view class="chips__inner">
+          <view class="chip" :class="{ 'chip--on': activeCategory === undefined }" @click="pickCategory(undefined)">
+            全部
+          </view>
+          <view
+            v-for="item in categories"
+            :key="item.categoryId"
+            class="chip"
+            :class="{ 'chip--on': activeCategory === item.categoryId }"
+            @click="pickCategory(item.categoryId)"
+          >
+            {{ item.name }}
+          </view>
+        </view>
+      </scroll-view>
     </view>
 
-    <scroll-view class="chips" scroll-x>
-      <view class="chips__inner">
-        <view class="chip" :class="{ 'chip--on': activeCategory === undefined }" @click="pickCategory(undefined)">
-          全部
-        </view>
-        <view
-          v-for="item in categories"
-          :key="item.categoryId"
-          class="chip"
-          :class="{ 'chip--on': activeCategory === item.categoryId }"
-          @click="pickCategory(item.categoryId)"
-        >
-          {{ item.name }}
-        </view>
-      </view>
-    </scroll-view>
-
-    <view v-if="dishes.length" class="grid">
-      <view v-for="dish in dishes" :key="dish.dishId" class="dish" @click="openDish(dish)">
-        <image v-if="dish.cover" class="dish__cover" :src="dish.cover" mode="aspectFill" />
-        <view v-else class="dish__cover dish__cover--ph">{{ dish.name }}</view>
-        <view class="dish__body">
-          <text class="dish__name">{{ dish.name }}</text>
-          <text class="dish__desc">{{ dish.description || "—" }}</text>
-          <view class="dish__meta">
-            <text v-for="tag in tagList(dish)" :key="tag" class="tag">{{ tag }}</text>
-            <text class="tiny">{{ dish.duration || "" }}</text>
+    <view class="app-fixed__scroll app-fixed__scroll--tabbed">
+      <view v-if="dishes.length" class="grid">
+        <view v-for="dish in dishes" :key="dish.dishId" class="dish" @click="openDish(dish)">
+          <image v-if="dish.cover" class="dish__cover" :src="dish.cover" mode="aspectFill" />
+          <view v-else class="dish__cover dish__cover--ph">{{ dish.name }}</view>
+          <view class="dish__body">
+            <text class="dish__name">{{ dish.name }}</text>
+            <text class="dish__desc">{{ dish.description || "—" }}</text>
+            <view class="dish__meta">
+              <view class="dish__meta-left">
+                <text v-for="tag in tagList(dish)" :key="tag" class="tag">{{ tag }}</text>
+                <text class="tiny">{{ dish.duration || "" }}</text>
+              </view>
+              <view class="dish__add" @click.stop="addToCart(dish)">＋</view>
+            </view>
           </view>
         </view>
       </view>
+
+      <view v-else-if="!loading" class="empty">还没有菜，去管理端点几道吧</view>
+
+      <view v-else class="skeleton-grid">
+        <view v-for="n in 6" :key="n" class="skeleton-card">
+          <view class="skeleton-card__cover shimmer"></view>
+          <view class="skeleton-card__line shimmer"></view>
+          <view class="skeleton-card__line skeleton-card__line--w40 shimmer"></view>
+        </view>
+      </view>
     </view>
 
-    <view v-else class="empty">{{ loading ? "加载中…" : "还没有菜，去管理端点几道吧" }}</view>
-
     <TabBar active="menu" />
+
+    <view v-if="cartStore.totalCount > 0" class="cart-fab" @click="goCart">
+      <image class="cart-fab__icon" :src="cartIcon" />
+      <text class="cart-fab__badge">{{ cartStore.totalCount }}</text>
+    </view>
   </view>
 </template>
 
@@ -240,8 +282,31 @@ function tagList(dish: Dish): string[] {
 .dish__meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8rpx;
+}
+
+/* 左侧标签与耗时允许被压缩，保证右侧加购按钮永远完整 */
+.dish__meta-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  overflow: hidden;
+}
+
+/* 一键加购：贴住卡片右下角 */
+.dish__add {
+  flex: 0 0 auto;
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 46rpx;
+  text-align: center;
+  border-radius: 50%;
+  background-color: $meal-primary;
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: 700;
 }
 
 .tag {
@@ -251,5 +316,88 @@ function tagList(dish: Dish): string[] {
   background-color: $meal-primary-soft;
   color: $meal-primary;
   font-weight: 600;
+}
+
+/* 右下角购物车浮动按钮 */
+.cart-fab {
+  position: fixed;
+  right: 30rpx;
+  bottom: 170rpx;
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, $meal-primary, $meal-primary-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10rpx 30rpx rgba(255, 107, 53, 0.45);
+  z-index: 90;
+}
+
+.cart-fab__icon {
+  width: 52rpx;
+  height: 52rpx;
+}
+
+.cart-fab__badge {
+  position: absolute;
+  top: -6rpx;
+  right: -6rpx;
+  min-width: 36rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  text-align: center;
+  padding: 0 8rpx;
+  border-radius: 999rpx;
+  background-color: $meal-danger;
+  color: #fff;
+  font-size: 20rpx;
+  font-weight: 700;
+}
+
+/* 骨架屏 */
+.skeleton-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.skeleton-card {
+  width: 48.5%;
+  background-color: $meal-card;
+  border-radius: 24rpx;
+  overflow: hidden;
+  margin-bottom: 20rpx;
+  padding-bottom: 18rpx;
+}
+
+.skeleton-card__cover {
+  width: 100%;
+  height: 190rpx;
+}
+
+.skeleton-card__line {
+  height: 22rpx;
+  border-radius: 8rpx;
+  margin: 16rpx 18rpx 0;
+}
+
+.skeleton-card__line--w40 {
+  width: 40%;
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #eee 25%, #f5f5f5 37%, #eee 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
 }
 </style>

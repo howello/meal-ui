@@ -44,6 +44,7 @@ function imageList(review: Review): string[] {
 <template>
   <view class="page-body">
     <view v-for="review in reviews" :key="review.reviewId" class="card">
+      <text class="dish-names">{{ review.dishNames || "菜品已删除" }}</text>
       <view class="row-between">
         <text class="tiny">{{ review.orderNo || "" }}</text>
         <text class="tiny">{{ review.createTime }}</text>
@@ -66,6 +67,14 @@ function imageList(review: Review): string[] {
 </template>
 
 <style lang="scss" scoped>
+.dish-names {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: $meal-text;
+  margin-bottom: 8rpx;
+}
+
 .stars {
   font-size: 30rpx;
   color: #ffb020;

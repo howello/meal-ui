@@ -30,7 +30,17 @@ const CHEF_TABS: TabItem[] = [
   { key: "mine", text: "我的", url: "/pages/mine/index", icon: "user" },
 ];
 
-const tabs = computed<TabItem[]>(() => (userStore.isChef ? CHEF_TABS : EATER_TABS));
+/**
+ * 刻意不用 uni 的 tabBar 配置。
+ *
+ * `tabBar.custom` 只在微信小程序端生效，H5 与 App 会忽略它并直接按 tabBar.list
+ * 全量渲染，结果任何账号都看到同一排 tab。所以 pages.json 不声明 tabBar，
+ * 底部导航完全由本组件承担，页面切换用 reLaunch（等价于 tab 之间的根级跳转）。
+ *
+ * 用哪一套看的是「当前在哪个视图」而不是「当前是什么角色」：厨师与家庭管理员
+ * 两边都能进，切到哪边就该显示哪边的 tab。
+ */
+const tabs = computed<TabItem[]>(() => (userStore.tabMode === "kitchen" ? CHEF_TABS : EATER_TABS));
 
 const activeColor = "#FF6B35";
 const normalColor = "#8B9199";
@@ -43,7 +53,7 @@ function switchTo(item: TabItem) {
   if (item.key === props.active) {
     return;
   }
-  uni.switchTab({ url: item.url });
+  uni.reLaunch({ url: item.url });
 }
 </script>
 

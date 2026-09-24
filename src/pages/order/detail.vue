@@ -2,6 +2,7 @@
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { cancelOrder, orderDetail } from "@/api/order";
+import { confirm } from "@/composables/useDialog";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
 
 const orderId = ref(0);
@@ -74,21 +75,17 @@ function doCancel() {
   if (!order.value) {
     return;
   }
-  uni.showModal({
-    title: "取消订单",
-    content: "确定取消这张订单吗？",
-    success: async (res) => {
-      if (!res.confirm) {
-        return;
-      }
-      try {
-        await cancelOrder(orderId.value);
-        uni.showToast({ title: "已取消", icon: "none" });
-        loadDetail();
-      } catch (e) {
-        // 提示已由请求层给出
-      }
-    },
+  confirm("确定取消这张订单吗？", "取消订单").then(async (ok) => {
+    if (!ok) {
+      return;
+    }
+    try {
+      await cancelOrder(orderId.value);
+      uni.showToast({ title: "已取消", icon: "none" });
+      loadDetail();
+    } catch (e) {
+      // 提示已由请求层给出
+    }
   });
 }
 
@@ -145,8 +142,17 @@ function goReview() {
       <view v-if="order.status === ORDER_STATUS.WAITING" class="actions__btn actions__btn--line" @click="doCancel">
         取消订单
       </view>
-      <view v-if="order.status === ORDER_STATUS.FINISHED" class="actions__btn" @click="goReview">去评价</view>
-      <view v-if="order.status === ORDER_STATUS.COOKING" class="actions__btn actions__btn--disabled">
+      <view
+        v-else-if="order.status === ORDER_STATUS.FINISHED && !order.reviewed"
+        class="actions__btn"
+        @click="goReview"
+      >
+        去评价
+      </view>
+      <view v-else-if="order.status === ORDER_STATUS.FINISHED" class="actions__btn actions__btn--disabled">
+        已评价
+      </view>
+      <view v-else-if="order.status === ORDER_STATUS.COOKING" class="actions__btn actions__btn--disabled">
         待完成后评价
       </view>
     </view>

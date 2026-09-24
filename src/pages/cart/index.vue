@@ -2,57 +2,86 @@
 import { onShow } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import TabBar from "@/components/TabBar.vue";
+import { confirm } from "@/composables/useDialog";
 import { useCartStore } from "@/store/cart";
 import { useUserStore } from "@/store/user";
+import type { CartLine } from "@/store/cart";
 
 const ORDER_REMARK_KEY = "meal-order-remark";
+
+/** 备注默认快捷标签 */
+const REMARK_TAGS = ["不要香菜", "不辣", "微辣", "中辣", "超级辣", "变态辣"];
 
 const cartStore = useCartStore();
 const userStore = useUserStore();
 
 const orderRemark = ref("");
+const editingId = ref<number | null>(null);
+const draftRemark = ref("");
 
 onShow(() => {
   if (!userStore.isLogin) {
     uni.reLaunch({ url: "/pages/login/index" });
     return;
   }
+  userStore.setViewMode("eater");
   cartStore.restore();
   const saved = uni.getStorageSync(ORDER_REMARK_KEY);
   orderRemark.value = typeof saved === "string" ? saved : "";
 });
 
-function changeCount(dishId: number, delta: number) {
-  const line = cartStore.lines.find((item) => item.dishId === dishId);
-  if (!line) {
+function changeCount(line: CartLine, delta: number) {
+  const next = line.count + delta;
+  if (next <= 0) {
+    confirm("确定把这道菜从购物车移除吗？", "移除菜品").then((ok) => {
+      if (ok) {
+        cartStore.updateCount(line.dishId, 0);
+        if (editingId.value === line.dishId) {
+          editingId.value = null;
+        }
+      }
+    });
     return;
   }
-  cartStore.updateCount(dishId, line.count + delta);
+  cartStore.updateCount(line.dishId, next);
 }
 
-function editRemark(dishId: number, current: string) {
-  uni.showModal({
-    title: "单项备注",
-    editable: true,
-    placeholderText: "如：不要放辣",
-    content: current || "",
-    success: (res) => {
-      if (res.confirm) {
-        cartStore.updateRemark(dishId, res.content || "");
-      }
-    },
-  });
+function openRemark(line: CartLine) {
+  editingId.value = line.dishId;
+  draftRemark.value = line.remark || "";
+}
+
+function remarkActive(tag: string): boolean {
+  return draftRemark.value
+    .split(/[、,]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .includes(tag);
+}
+
+function toggleTag(tag: string) {
+  const parts = draftRemark.value
+    ? draftRemark.value.split(/[、,]/).map((s) => s.trim()).filter(Boolean)
+    : [];
+  const idx = parts.indexOf(tag);
+  if (idx >= 0) {
+    parts.splice(idx, 1);
+  } else {
+    parts.push(tag);
+  }
+  draftRemark.value = parts.join("、");
+}
+
+function saveRemark(line: CartLine) {
+  cartStore.updateRemark(line.dishId, draftRemark.value.trim());
+  editingId.value = null;
 }
 
 function removeLine(dishId: number) {
-  uni.showModal({
-    title: "提示",
-    content: "确定要从购物车移除这道菜吗？",
-    success: (res) => {
-      if (res.confirm) {
-        cartStore.remove(dishId);
-      }
-    },
+  confirm("确定要从购物车移除这道菜吗？", "移除菜品").then((ok) => {
+    if (ok) {
+      cartStore.remove(dishId);
+    }
   });
 }
 
@@ -60,18 +89,14 @@ function clearAll() {
   if (cartStore.isEmpty) {
     return;
   }
-  uni.showModal({
-    title: "提示",
-    content: "确定清空购物车吗？",
-    success: (res) => {
-      if (res.confirm) {
-        cartStore.clear();
-      }
-    },
+  confirm("确定清空购物车吗？", "清空购物车").then((ok) => {
+    if (ok) {
+      cartStore.clear();
+    }
   });
 }
 
-function saveRemark() {
+function saveOrderRemark() {
   uni.setStorageSync(ORDER_REMARK_KEY, orderRemark.value);
 }
 
@@ -80,54 +105,83 @@ function goConfirm() {
     uni.showToast({ title: "购物车是空的", icon: "none" });
     return;
   }
-  saveRemark();
+  saveOrderRemark();
   uni.navigateTo({ url: "/pages/order/confirm" });
 }
 </script>
 
 <template>
-  <view class="page-body page-body--tabbed">
-    <view class="row-between head">
-      <text class="section-title">购物车</text>
-      <text v-if="!cartStore.isEmpty" class="tiny" @click="clearAll">清空</text>
+  <view class="app-fixed">
+    <view class="app-fixed__head">
+      <view class="row-between head">
+        <text class="section-title">购物车</text>
+        <text v-if="!cartStore.isEmpty" class="tiny" @click="clearAll">清空</text>
+      </view>
     </view>
 
-    <template v-if="!cartStore.isEmpty">
-      <view v-for="line in cartStore.lines" :key="line.dishId" class="card line">
-        <image v-if="line.dishCover" class="line__cover" :src="line.dishCover" mode="aspectFill" />
-        <view v-else class="line__cover line__cover--ph">{{ line.dishName }}</view>
-        <view class="line__body">
-          <view class="row-between">
-            <text class="line__name">{{ line.dishName }}</text>
-            <text class="line__del" @click="removeLine(line.dishId)">✕</text>
-          </view>
-          <text class="line__remark" @click="editRemark(line.dishId, line.remark || '')">
-            {{ line.remark || "加备注" }}
-          </text>
-          <view class="row-between">
-            <view class="stepper">
-              <text class="stepper__btn" @click="changeCount(line.dishId, -1)">−</text>
-              <text class="stepper__count">{{ line.count }}</text>
-              <text class="stepper__btn stepper__btn--plus" @click="changeCount(line.dishId, 1)">+</text>
+    <view class="app-fixed__scroll cart-scroll">
+      <template v-if="!cartStore.isEmpty">
+        <view v-for="line in cartStore.lines" :key="line.dishId" class="card line">
+          <image v-if="line.dishCover" class="line__cover" :src="line.dishCover" mode="aspectFill" />
+          <view v-else class="line__cover line__cover--ph">{{ line.dishName }}</view>
+          <view class="line__body">
+            <view class="row-between">
+              <text class="line__name">{{ line.dishName }}</text>
+              <text class="line__del" @click="removeLine(line.dishId)">✕</text>
             </view>
-            <text class="tiny">共 {{ line.count }} 份</text>
+            <view class="line__remark" @click="openRemark(line)">
+              {{ line.remark || "加备注" }}
+            </view>
+
+            <view v-if="editingId === line.dishId" class="remark-editor">
+              <view class="remark-editor__tags">
+                <text
+                  v-for="t in REMARK_TAGS"
+                  :key="t"
+                  class="remark-tag"
+                  :class="{ 'remark-tag--on': remarkActive(t) }"
+                  @click="toggleTag(t)"
+                >
+                  {{ t }}
+                </text>
+              </view>
+              <input
+                v-model="draftRemark"
+                class="remark-editor__input"
+                placeholder="其他备注，如：少放盐"
+                placeholder-class="ph"
+              />
+              <view class="remark-editor__btns">
+                <text class="remark-editor__btn remark-editor__btn--line" @click="editingId = null">取消</text>
+                <text class="remark-editor__btn" @click="saveRemark(line)">保存</text>
+              </view>
+            </view>
+
+            <view class="row-between">
+              <view class="stepper">
+                <text class="stepper__btn" @click="changeCount(line, -1)">−</text>
+                <text class="stepper__count">{{ line.count }}</text>
+                <text class="stepper__btn stepper__btn--plus" @click="changeCount(line, 1)">＋</text>
+              </view>
+              <text class="tiny">共 {{ line.count }} 份</text>
+            </view>
           </view>
         </view>
-      </view>
 
-      <view class="card">
-        <text class="section-title">整体备注</text>
-        <input
-          v-model="orderRemark"
-          class="remark-input"
-          placeholder="口味 / 忌口，如：爸爸不吃香菜"
-          placeholder-class="ph"
-          @blur="saveRemark"
-        />
-      </view>
-    </template>
+        <view class="card">
+          <text class="section-title">整体备注</text>
+          <input
+            v-model="orderRemark"
+            class="remark-input"
+            placeholder="口味 / 忌口，如：爸爸不吃香菜"
+            placeholder-class="ph"
+            @blur="saveOrderRemark"
+          />
+        </view>
+      </template>
 
-    <view v-else class="empty">购物车还是空的，去点餐区看看</view>
+      <view v-else class="empty">购物车还是空的，去点餐区看看</view>
+    </view>
 
     <view v-if="!cartStore.isEmpty" class="bottombar">
       <view class="row-between bottombar__sum">
@@ -190,6 +244,67 @@ function goConfirm() {
   font-size: 22rpx;
   color: $meal-text-2;
   margin: 10rpx 0 16rpx;
+}
+
+/* 备注编辑器（快捷标签 + 自定义输入） */
+.remark-editor {
+  background-color: $meal-primary-soft;
+  border-radius: 16rpx;
+  padding: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.remark-editor__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-bottom: 14rpx;
+}
+
+.remark-tag {
+  font-size: 22rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  background-color: #fff;
+  color: $meal-text-2;
+  border: 1rpx solid $meal-line;
+}
+
+.remark-tag--on {
+  background-color: $meal-primary;
+  border-color: $meal-primary;
+  color: #fff;
+  font-weight: 600;
+}
+
+.remark-editor__input {
+  font-size: 24rpx;
+  color: $meal-text;
+  background-color: #fff;
+  border-radius: 12rpx;
+  padding: 14rpx 16rpx;
+}
+
+.remark-editor__btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16rpx;
+  margin-top: 14rpx;
+}
+
+.remark-editor__btn {
+  font-size: 24rpx;
+  padding: 10rpx 28rpx;
+  border-radius: 999rpx;
+  background-color: $meal-primary;
+  color: #fff;
+  font-weight: 600;
+}
+
+.remark-editor__btn--line {
+  background-color: transparent;
+  border: 1rpx solid $meal-line;
+  color: $meal-text-2;
 }
 
 .stepper {
@@ -260,5 +375,10 @@ function goConfirm() {
   color: #fff;
   font-size: 30rpx;
   font-weight: 600;
+}
+
+/* 购物车滚动区底部给结算条 + TabBar 让位 */
+.cart-scroll {
+  padding: 24rpx 24rpx 260rpx;
 }
 </style>

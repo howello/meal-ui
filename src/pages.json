@@ -16,7 +16,8 @@
     {
       "path": "pages/menu/index",
       "style": {
-        "navigationBarTitleText": "今天吃什么"
+        "navigationBarTitleText": "今天吃什么",
+        "enablePullDownRefresh": true
       }
     },
     {
@@ -41,7 +42,8 @@
       "path": "pages/kitchen/waiting",
       "style": {
         "navigationBarTitleText": "待接单",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
       }
     },
     {
@@ -94,35 +96,6 @@
       }
     }
   ],
-  "tabBar": {
-    "custom": true,
-    "color": "#8B9199",
-    "selectedColor": "#FF6B35",
-    "backgroundColor": "#FFFFFF",
-    "borderStyle": "white",
-    "list": [
-      {
-        "pagePath": "pages/menu/index",
-        "text": "点餐区"
-      },
-      {
-        "pagePath": "pages/cart/index",
-        "text": "购物车"
-      },
-      {
-        "pagePath": "pages/mine/index",
-        "text": "个人中心"
-      },
-      {
-        "pagePath": "pages/kitchen/waiting",
-        "text": "待接单"
-      },
-      {
-        "pagePath": "pages/kitchen/cooking",
-        "text": "制作中"
-      }
-    ]
-  },
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "家里吃什么",

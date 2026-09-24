@@ -74,6 +74,8 @@ export interface Order {
   waitMinutes?: number;
   /** 后端计算的已制作分钟数 */
   cookMinutes?: number;
+  /** 是否已评价（后端附带），已评价的订单不再显示「去评价」 */
+  reviewed?: boolean;
 }
 
 /** 评价 */
@@ -81,6 +83,8 @@ export interface Review {
   reviewId?: number;
   orderId: number;
   orderNo?: string;
+  /** 该订单的菜名，顿号分隔，如「红烧肉、扬州炒饭」 */
+  dishNames?: string;
   score: number;
   content?: string;
   /** JSON 字符串，形如 ["https://..."] */
@@ -114,6 +118,8 @@ export interface UserInfo {
   userName: string;
   nickName: string;
   deptId?: number;
+  /** 家庭/部门名称，后端 /getInfo 已随 UserInfo 返回 */
+  deptName?: string;
   avatar?: string;
 }
 
@@ -152,3 +158,6 @@ export const ROLE_CHEF = "meal_chef";
 
 /** 角色标识：家庭管理员 */
 export const ROLE_MANAGER = "meal_manager";
+
+/** 视图模式：点餐区 / 厨师工作台 */
+export type ViewMode = "eater" | "kitchen";

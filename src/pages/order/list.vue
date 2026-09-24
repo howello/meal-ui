@@ -2,6 +2,7 @@
 import { onShow } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { cancelOrder, myOrders } from "@/api/order";
+import { confirm } from "@/composables/useDialog";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
 
 const FILTERS = [
@@ -65,21 +66,17 @@ function goReview(order: Order) {
 }
 
 function doCancel(order: Order) {
-  uni.showModal({
-    title: "取消订单",
-    content: "确定取消这张订单吗？",
-    success: async (res) => {
-      if (!res.confirm) {
-        return;
-      }
-      try {
-        await cancelOrder(order.orderId);
-        uni.showToast({ title: "已取消", icon: "none" });
-        loadOrders();
-      } catch (e) {
-        // 提示已由请求层给出
-      }
-    },
+  confirm("确定取消这张订单吗？", "取消订单").then(async (ok) => {
+    if (!ok) {
+      return;
+    }
+    try {
+      await cancelOrder(order.orderId);
+      uni.showToast({ title: "已取消", icon: "none" });
+      loadOrders();
+    } catch (e) {
+      // 提示已由请求层给出
+    }
   });
 }
 </script>
@@ -122,13 +119,14 @@ function doCancel(order: Order) {
             取消订单
           </text>
           <text
-            v-if="order.status === ORDER_STATUS.FINISHED"
+            v-else-if="order.status === ORDER_STATUS.FINISHED && !order.reviewed"
             class="btn"
             @click.stop="goReview(order)"
           >
             去评价
           </text>
-          <text v-if="order.status === ORDER_STATUS.COOKING" class="tiny">厨师已接单 ›</text>
+          <text v-else-if="order.status === ORDER_STATUS.FINISHED" class="tiny">已评价</text>
+          <text v-else-if="order.status === ORDER_STATUS.COOKING" class="tiny">厨师已接单 ›</text>
         </view>
       </view>
     </view>
