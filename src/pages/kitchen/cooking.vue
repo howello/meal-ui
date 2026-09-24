@@ -106,7 +106,7 @@ function openDish(item: OrderItem) {
   if (!item.dishId) {
     return;
   }
-  uni.navigateTo({ url: `/pages/menu/detail?dishId=${item.dishId}` });
+  uni.navigateTo({ url: `/pages/menu/detail?dishId=${item.dishId}&readonly=1` });
 }
 
 /** 已制作时长由后端计算返回，前端不自己计时 */

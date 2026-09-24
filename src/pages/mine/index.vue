@@ -82,7 +82,7 @@ const avatarText = (): string => {
             <text class="profile__name">{{ userStore.nickName || "未登录" }}</text>
             <text v-for="label in userStore.roleLabels" :key="label" class="tag">{{ label }}</text>
           </view>
-          <text class="tiny">家庭 · {{ userStore.user?.deptName || "我的家庭" }} · {{ userStore.user?.userName || "" }}</text>
+          <text class="tiny">家庭 · {{ userStore.deptName || "我的家庭" }} · {{ userStore.user?.userName || "" }}</text>
         </view>
       </view>
 

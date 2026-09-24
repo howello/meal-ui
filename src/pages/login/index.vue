@@ -241,9 +241,8 @@ function goNext() {
 <style lang="scss" scoped>
 .login {
   height: 100vh;
-  /* 内容不足一屏时整页不滚动；键盘弹起等极端情况允许内部滚动 */
-  overflow-y: auto;
-  /* 本页是自定义导航栏（navigationStyle: custom），App 端要给状态栏留出高度 */
+  /* 全屏固定，内容不足一屏时整页不可上下滚动 */
+  overflow: hidden;
   /* 本页是自定义导航栏（navigationStyle: custom），App 端要给状态栏留出高度 */
   padding: calc(160rpx + var(--status-bar-height)) 52rpx 60rpx;
   background-color: $meal-bg;

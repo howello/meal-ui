@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
+import { onShow } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { acceptOrder, kitchenOrders } from "@/api/order";
 import TabBar from "@/components/TabBar.vue";
@@ -29,10 +29,17 @@ onShow(async () => {
   loadOrders();
 });
 
-onPullDownRefresh(async () => {
-  await loadOrders();
-  uni.stopPullDownRefresh();
-});
+const refreshing = ref(false);
+
+/** 下拉刷新：重新拉取待接单列表 */
+async function onRefresh() {
+  refreshing.value = true;
+  try {
+    await loadOrders();
+  } finally {
+    refreshing.value = false;
+  }
+}
 
 async function loadOrders() {
   loading.value = true;
@@ -76,7 +83,13 @@ function waitText(order: Order): string {
       <text class="header__sub">{{ userStore.nickName }}，今天辛苦了</text>
     </view>
 
-    <view class="app-fixed__scroll kitchen-scroll">
+    <scroll-view
+      class="app-fixed__scroll kitchen-scroll"
+      :scroll-y="true"
+      :refresher-enabled="true"
+      :refresher-triggered="refreshing"
+      @refresherrefresh="onRefresh"
+    >
       <view v-for="order in orders" :key="order.orderId" class="card order">
         <view class="row-between">
           <text class="order__who">{{ order.userName || "家人" }} 点的单</text>
@@ -99,8 +112,15 @@ function waitText(order: Order): string {
         </view>
       </view>
 
-      <view v-if="!orders.length" class="empty">{{ loading ? "加载中…" : "暂时没有待接单的订单" }}</view>
-    </view>
+      <view v-if="loading && !orders.length" class="skeleton-grid">
+        <view v-for="n in 3" :key="n" class="skeleton-card">
+          <view class="skeleton-card__cover shimmer"></view>
+          <view class="skeleton-card__line shimmer"></view>
+          <view class="skeleton-card__line skeleton-card__line--w40 shimmer"></view>
+        </view>
+      </view>
+      <view v-else-if="!orders.length" class="empty">暂时没有待接单的订单</view>
+    </scroll-view>
 
     <TabBar active="kitchen-waiting" />
   </view>
@@ -215,5 +235,51 @@ function waitText(order: Order): string {
   border: 1rpx solid $meal-line;
   color: $meal-text-2;
   font-weight: 400;
+}
+
+/* 骨架屏 */
+.skeleton-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.skeleton-card {
+  background-color: $meal-card;
+  border-radius: 24rpx;
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.skeleton-card__cover {
+  width: 100%;
+  height: 80rpx;
+  border-radius: 16rpx;
+}
+
+.skeleton-card__line {
+  height: 22rpx;
+  border-radius: 8rpx;
+}
+
+.skeleton-card__line--w40 {
+  width: 40%;
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #eee 25%, #f5f5f5 37%, #eee 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
 }
 </style>

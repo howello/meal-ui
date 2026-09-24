@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
+import { onShow } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { listCategory, listDish } from "@/api/dish";
 import TabBar from "@/components/TabBar.vue";
@@ -37,10 +37,17 @@ onShow(async () => {
   await loadDishes();
 });
 
-onPullDownRefresh(async () => {
-  await Promise.all([loadCategories(), loadDishes()]);
-  uni.stopPullDownRefresh();
-});
+const refreshing = ref(false);
+
+/** 下拉刷新：重新拉取分类与菜品列表 */
+async function onRefresh() {
+  refreshing.value = true;
+  try {
+    await Promise.all([loadCategories(), loadDishes()]);
+  } finally {
+    refreshing.value = false;
+  }
+}
 
 async function loadCategories() {
   try {
@@ -134,7 +141,13 @@ function tagList(dish: Dish): string[] {
       </scroll-view>
     </view>
 
-    <view class="app-fixed__scroll app-fixed__scroll--tabbed">
+    <scroll-view
+      class="app-fixed__scroll app-fixed__scroll--tabbed"
+      :scroll-y="true"
+      :refresher-enabled="true"
+      :refresher-triggered="refreshing"
+      @refresherrefresh="onRefresh"
+    >
       <view v-if="dishes.length" class="grid">
         <view v-for="dish in dishes" :key="dish.dishId" class="dish" @click="openDish(dish)">
           <image v-if="dish.cover" class="dish__cover" :src="dish.cover" mode="aspectFill" />
@@ -162,7 +175,7 @@ function tagList(dish: Dish): string[] {
           <view class="skeleton-card__line skeleton-card__line--w40 shimmer"></view>
         </view>
       </view>
-    </view>
+    </scroll-view>
 
     <TabBar active="menu" />
 

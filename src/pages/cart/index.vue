@@ -9,8 +9,37 @@ import type { CartLine } from "@/store/cart";
 
 const ORDER_REMARK_KEY = "meal-order-remark";
 
-/** 备注默认快捷标签 */
-const REMARK_TAGS = ["不要香菜", "不辣", "微辣", "中辣", "超级辣", "变态辣"];
+/** 备注默认快捷标签池（样式不变，每次打开按随机顺序展示） */
+const REMARK_TAGS = [
+  "不要香菜",
+  "不要葱蒜",
+  "不辣",
+  "微辣",
+  "中辣",
+  "重辣",
+  "超级辣",
+  "变态辣",
+  "少油",
+  "少盐",
+  "不要糖",
+  "多放饭",
+  "不要姜",
+  "趁热吃",
+  "常温",
+];
+
+/** 当前展示的标签顺序（每次打开备注编辑器随机打乱） */
+const remarkTags = ref<string[]>([]);
+
+/** Fisher–Yates 洗牌，返回新数组，不改动原数组 */
+function shuffle<T>(arr: T[]): T[] {
+  const next = [...arr];
+  for (let i = next.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [next[i], next[j]] = [next[j], next[i]];
+  }
+  return next;
+}
 
 const cartStore = useCartStore();
 const userStore = useUserStore();
@@ -33,7 +62,7 @@ onShow(() => {
 function changeCount(line: CartLine, delta: number) {
   const next = line.count + delta;
   if (next <= 0) {
-    confirm("确定把这道菜从购物车移除吗？", "移除菜品").then((ok) => {
+    confirm(`是否去掉「${line.dishName}」这道菜？`, "移除菜品").then((ok) => {
       if (ok) {
         cartStore.updateCount(line.dishId, 0);
         if (editingId.value === line.dishId) {
@@ -49,6 +78,7 @@ function changeCount(line: CartLine, delta: number) {
 function openRemark(line: CartLine) {
   editingId.value = line.dishId;
   draftRemark.value = line.remark || "";
+  remarkTags.value = shuffle(REMARK_TAGS);
 }
 
 function remarkActive(tag: string): boolean {
@@ -136,7 +166,7 @@ function goConfirm() {
             <view v-if="editingId === line.dishId" class="remark-editor">
               <view class="remark-editor__tags">
                 <text
-                  v-for="t in REMARK_TAGS"
+                  v-for="t in remarkTags"
                   :key="t"
                   class="remark-tag"
                   :class="{ 'remark-tag--on': remarkActive(t) }"

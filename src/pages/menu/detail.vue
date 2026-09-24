@@ -11,9 +11,12 @@ const dish = ref<Dish | null>(null);
 const remark = ref("");
 const count = ref(1);
 const loading = ref(true);
+/** 只读模式：来自制作中页跳转时隐藏加入购物车等加购交互，仅展示菜品信息 */
+const readonly = ref(false);
 
 onLoad(async (options) => {
   const dishId = Number(options?.dishId || 0);
+  readonly.value = options?.readonly === "1" || options?.readonly === "true";
   if (!dishId) {
     uni.showToast({ title: "菜品不存在", icon: "none" });
     return;
@@ -126,13 +129,13 @@ function addToCart() {
         <view v-for="(tip, index) in tips" :key="index" class="tip">{{ tip }}</view>
       </view>
 
-      <view class="card">
+      <view v-if="!readonly" class="card">
         <text class="section-title">单项备注</text>
         <input v-model="remark" class="remark-input" placeholder="如：不要放辣" placeholder-class="search__ph" />
       </view>
     </view>
 
-    <view class="bottombar">
+    <view v-if="!readonly" class="bottombar">
       <view class="stepper">
         <text class="stepper__btn" @click="changeCount(-1)">−</text>
         <text class="stepper__count">{{ count }}</text>

@@ -118,7 +118,12 @@ export interface UserInfo {
   userName: string;
   nickName: string;
   deptId?: number;
-  /** 家庭/部门名称，后端 /getInfo 已随 UserInfo 返回 */
+  /**
+   * 家庭/部门名称。
+   * 后端 /getInfo 把 dept 信息以嵌套对象返回（user.dept.deptName），
+   * 这里同时兼容扁平写法 user.deptName（部分接口可能直接平铺）。
+   */
+  dept?: { deptId?: number; deptName?: string };
   deptName?: string;
   avatar?: string;
 }

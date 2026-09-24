@@ -16,8 +16,7 @@
     {
       "path": "pages/menu/index",
       "style": {
-        "navigationBarTitleText": "今天吃什么",
-        "enablePullDownRefresh": true
+        "navigationBarTitleText": "今天吃什么"
       }
     },
     {
@@ -42,8 +41,7 @@
       "path": "pages/kitchen/waiting",
       "style": {
         "navigationBarTitleText": "待接单",
-        "navigationStyle": "custom",
-        "enablePullDownRefresh": true
+        "navigationStyle": "custom"
       }
     },
     {

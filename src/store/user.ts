@@ -53,6 +53,13 @@ export const useUserStore = defineStore("user", {
         : "eater",
     isManager: (state): boolean => state.roles.includes(ROLE_MANAGER),
     nickName: (state): string => state.user?.nickName || state.user?.userName || "",
+    /**
+     * 家庭/部门名称。
+     * 后端 /getInfo 嵌套返回 user.dept.deptName，部分接口也可能直接平铺 user.deptName，
+     * 这里两种都兼容，避免拿到 undefined 后界面退化成「我的家庭」占位。
+     */
+    deptName: (state): string =>
+      state.user?.dept?.deptName || state.user?.deptName || "",
     roleLabels: (state): string[] => {
       const labels: string[] = [];
       if (state.roles.includes(ROLE_CHEF)) {
