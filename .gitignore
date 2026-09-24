@@ -27,3 +27,4 @@ unpackage
 /.comet/*
 !/.comet/config.yaml
 # <<< Comet managed project state <<<
+.hbuilderx
