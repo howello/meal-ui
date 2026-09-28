@@ -12,6 +12,7 @@ const userStore = useUserStore();
 
 const orders = ref<Order[]>([]);
 const loading = ref(false);
+const refreshing = ref(false);
 /** orderId -> 已标记完成的 itemId 列表（仅存本地） */
 const doneMap = reactive<Record<number, number[]>>({});
 
@@ -32,6 +33,15 @@ onShow(async () => {
   loadDoneMap();
   loadOrders();
 });
+
+async function onRefresh() {
+  refreshing.value = true;
+  try {
+    await loadOrders();
+  } finally {
+    refreshing.value = false;
+  }
+}
 
 async function loadOrders() {
   loading.value = true;
@@ -123,7 +133,13 @@ function cookText(order: Order): string {
       <text class="header__sub">逐道菜点完成，全部备好自动出餐</text>
     </view>
 
-    <view class="app-fixed__scroll kitchen-scroll">
+    <scroll-view
+      class="app-fixed__scroll kitchen-scroll"
+      :scroll-y="true"
+      :refresher-enabled="true"
+      :refresher-triggered="refreshing"
+      @refresherrefresh="onRefresh"
+    >
       <view v-for="order in orders" :key="order.orderId" class="card order">
         <view class="row-between">
           <text class="order__who">{{ order.userName || "家人" }} 的订单</text>
@@ -140,7 +156,7 @@ function cookText(order: Order): string {
           <view class="item__cover">{{ item.dishName }}</view>
           <view class="item__main">
             <text class="item__name">{{ item.dishName }} × {{ item.count }}</text>
-            <text v-if="item.remark" class="tiny">{{ item.remark }}</text>
+            <text v-if="item.remark" class="item__remark">备注：{{ item.remark }}</text>
           </view>
           <view
             class="item__done"
@@ -151,13 +167,13 @@ function cookText(order: Order): string {
           </view>
         </view>
 
-        <view v-if="order.orderRemark" class="note">整体备注：{{ order.orderRemark }}</view>
+        <view class="note">整体备注：{{ order.orderRemark || "无" }}</view>
 
         <view class="order__progress">已备 {{ doneCount(order) }}/{{ totalCount(order) }}</view>
       </view>
 
       <view v-if="!orders.length" class="empty">{{ loading ? "加载中…" : "暂时没有制作中的订单" }}</view>
-    </view>
+    </scroll-view>
 
     <TabBar active="kitchen-cooking" />
   </view>
@@ -249,6 +265,17 @@ function cookText(order: Order): string {
   color: $meal-text;
 }
 
+/* 菜品备注：主题浅色底 + 主题色文字，从普通 tiny 提亮 */
+.item__remark {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 22rpx;
+  color: $meal-primary;
+  background-color: $meal-primary-soft;
+  padding: 6rpx 14rpx;
+  border-radius: 8rpx;
+}
+
 .note {
   margin-top: 20rpx;
   padding: 16rpx 20rpx;
@@ -256,6 +283,7 @@ function cookText(order: Order): string {
   background-color: $meal-primary-soft;
   color: $meal-primary;
   font-size: 24rpx;
+  font-weight: 600;
 }
 
 /* 单道菜的完成勾选 */

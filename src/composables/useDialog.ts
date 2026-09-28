@@ -17,7 +17,11 @@ interface DialogState {
  */
 let pendingResolve: ((value: boolean) => void) | null = null;
 
-/** 全局弹窗状态：由 AppDialog 组件渲染，所有页面通过 confirm/alert 调用 */
+/**
+ * 全局弹窗状态：由 AppDialog 组件渲染，所有页面通过 confirm/alert 调用。
+ *
+ * 调用 confirm/alert 的页面必须在自己的模板里挂载 `<AppDialog />`，否则弹窗不会显示。
+ */
 export const dialogState = reactive<DialogState>({
   visible: false,
   title: "提示",

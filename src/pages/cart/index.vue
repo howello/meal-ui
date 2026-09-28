@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onShow } from "@dcloudio/uni-app";
 import { ref } from "vue";
+import AppDialog from "@/components/AppDialog.vue";
 import TabBar from "@/components/TabBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { useCartStore } from "@/store/cart";
@@ -62,7 +63,7 @@ onShow(() => {
 function changeCount(line: CartLine, delta: number) {
   const next = line.count + delta;
   if (next <= 0) {
-    confirm(`是否去掉「${line.dishName}」这道菜？`, "移除菜品").then((ok) => {
+    confirm(`是否去掉「${line.dishName}」菜品？`, "移除菜品").then((ok) => {
       if (ok) {
         cartStore.updateCount(line.dishId, 0);
         if (editingId.value === line.dishId) {
@@ -135,6 +136,15 @@ function goConfirm() {
     uni.showToast({ title: "购物车是空的", icon: "none" });
     return;
   }
+  // 备注编辑器还开着就去下单：先把草稿存进该菜，避免没点「保存」导致备注丢失
+  if (editingId.value !== null) {
+    const editing = cartStore.lines.find((line) => line.dishId === editingId.value);
+    if (editing) {
+      saveRemark(editing);
+    } else {
+      editingId.value = null;
+    }
+  }
   saveOrderRemark();
   uni.navigateTo({ url: "/pages/order/confirm" });
 }
@@ -145,7 +155,7 @@ function goConfirm() {
     <view class="app-fixed__head">
       <view class="row-between head">
         <text class="section-title">购物车</text>
-        <text v-if="!cartStore.isEmpty" class="tiny" @click="clearAll">清空</text>
+        <text v-if="!cartStore.isEmpty" class="head__clear" @click="clearAll">清空</text>
       </view>
     </view>
 
@@ -223,11 +233,23 @@ function goConfirm() {
 
     <TabBar active="cart" />
   </view>
+
+  <AppDialog />
 </template>
 
 <style lang="scss" scoped>
 .head {
   margin-bottom: 20rpx;
+}
+
+/* 「清空」：负外边距抵消内边距，视觉位置不变，点击区域放大到 68rpx 高 */
+.head__clear {
+  display: inline-block;
+  padding: 18rpx 24rpx;
+  margin: -18rpx -24rpx -18rpx 0;
+  line-height: 32rpx;
+  font-size: 24rpx;
+  color: $meal-text-2;
 }
 
 .line {
@@ -263,10 +285,17 @@ function goConfirm() {
   color: $meal-text;
 }
 
+/* 删除 ✕：点击区域 68rpx 见方，负外边距让图标仍贴在卡片右上角 */
 .line__del {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 68rpx;
+  height: 68rpx;
+  line-height: 68rpx;
+  text-align: center;
+  margin: -18rpx -18rpx -18rpx 0;
   color: $meal-text-2;
   font-size: 26rpx;
-  padding: 0 8rpx;
 }
 
 .line__remark {
@@ -380,7 +409,8 @@ function goConfirm() {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 108rpx;
+  /* 固定在 TabBar 上方，TabBar 自身会加底部安全区高度，这里同步让位 */
+  bottom: calc(108rpx + env(safe-area-inset-bottom));
   padding: 20rpx 24rpx;
   background-color: $meal-card;
   border-top: 1rpx solid $meal-line;
@@ -409,6 +439,6 @@ function goConfirm() {
 
 /* 购物车滚动区底部给结算条 + TabBar 让位 */
 .cart-scroll {
-  padding: 24rpx 24rpx 260rpx;
+  padding: 24rpx 24rpx calc(260rpx + env(safe-area-inset-bottom));
 }
 </style>

@@ -335,7 +335,8 @@ function tagList(dish: Dish): string[] {
 .cart-fab {
   position: fixed;
   right: 30rpx;
-  bottom: 170rpx;
+  /* TabBar 会加底部安全区高度，悬浮按钮同步上移 */
+  bottom: calc(170rpx + env(safe-area-inset-bottom));
   width: 104rpx;
   height: 104rpx;
   border-radius: 50%;

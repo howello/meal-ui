@@ -2,6 +2,7 @@
 import { onShow } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { cancelOrder, myOrders } from "@/api/order";
+import AppDialog from "@/components/AppDialog.vue";
 import { confirm } from "@/composables/useDialog";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
 
@@ -113,7 +114,7 @@ function doCancel(order: Order) {
         <view class="order__actions">
           <text
             v-if="order.status === ORDER_STATUS.WAITING"
-            class="btn btn--line"
+            class="btn btn--cancel"
             @click.stop="doCancel(order)"
           >
             取消订单
@@ -133,6 +134,8 @@ function doCancel(order: Order) {
 
     <view v-if="!orders.length" class="empty">{{ loading ? "加载中…" : "还没有订单" }}</view>
   </view>
+
+  <AppDialog />
 </template>
 
 <style lang="scss" scoped>
@@ -205,10 +208,11 @@ function doCancel(order: Order) {
   font-size: 24rpx;
 }
 
-.btn--line {
-  background-color: transparent;
-  border: 1rpx solid $meal-line;
-  color: $meal-text-2;
+/* 取消订单：白底 + 危险色描边，和订单详情页一致 */
+.btn--cancel {
+  background-color: $meal-card;
+  border: 2rpx solid $meal-danger;
+  color: $meal-danger;
 }
 
 .tag {

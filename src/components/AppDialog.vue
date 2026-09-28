@@ -1,5 +1,20 @@
 <script setup lang="ts">
+/**
+ * 全局确认/提示弹窗的渲染层
+ *
+ * 必须挂在「调用 confirm()/alert() 的页面」自己的模板里（放在页面根节点之外作为同级节点），
+ * 不能挂在 App.vue：uni-app 会把 App 根组件的渲染替换成内置布局（H5），App 端页面也不渲染它，
+ * 挂在那里的弹窗永远不会出现，confirm() 的 Promise 也就永远等不到结果。
+ */
+import { onBeforeUnmount } from "vue";
 import { dialogState, handleConfirm, handleCancel } from "@/composables/useDialog";
+
+// 所在页面被关闭（返回、reLaunch）时弹窗还开着，按「取消」收掉，避免遗留到别的页面
+onBeforeUnmount(() => {
+  if (dialogState.visible) {
+    handleCancel();
+  }
+});
 </script>
 
 <template>

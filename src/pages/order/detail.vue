@@ -2,6 +2,7 @@
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { cancelOrder, orderDetail } from "@/api/order";
+import AppDialog from "@/components/AppDialog.vue";
 import { confirm } from "@/composables/useDialog";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
 
@@ -139,7 +140,7 @@ function goReview() {
     </view>
 
     <view class="actions">
-      <view v-if="order.status === ORDER_STATUS.WAITING" class="actions__btn actions__btn--line" @click="doCancel">
+      <view v-if="order.status === ORDER_STATUS.WAITING" class="actions__btn actions__btn--cancel" @click="doCancel">
         取消订单
       </view>
       <view
@@ -159,6 +160,8 @@ function goReview() {
   </view>
 
   <view v-else class="empty">{{ loading ? "加载中…" : "订单不存在" }}</view>
+
+  <AppDialog />
 </template>
 
 <style lang="scss" scoped>
@@ -281,10 +284,12 @@ function goReview() {
   font-weight: 600;
 }
 
-.actions__btn--line {
-  background-color: transparent;
-  border: 1rpx solid $meal-line;
-  color: $meal-text-2;
+/* 取消订单：白底 + 危险色描边，一眼能看出是按钮 */
+.actions__btn--cancel {
+  box-sizing: border-box;
+  background-color: $meal-card;
+  border: 2rpx solid $meal-danger;
+  color: $meal-danger;
 }
 
 .actions__btn--disabled {

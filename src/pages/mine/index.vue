@@ -4,6 +4,7 @@ import { ref } from "vue";
 import { myOrders } from "@/api/order";
 import { myProposals } from "@/api/proposal";
 import { myReviews } from "@/api/review";
+import AppDialog from "@/components/AppDialog.vue";
 import TabBar from "@/components/TabBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { useUserStore } from "@/store/user";
@@ -145,6 +146,8 @@ const avatarText = (): string => {
 
     <TabBar active="mine" />
   </view>
+
+  <AppDialog />
 </template>
 
 <style lang="scss" scoped>

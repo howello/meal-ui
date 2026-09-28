@@ -100,11 +100,11 @@ function waitText(order: Order): string {
           <view class="item__cover">{{ item.dishName }}</view>
           <view class="item__main">
             <text class="item__name">{{ item.dishName }} × {{ item.count }}</text>
-            <text v-if="item.remark" class="tiny">{{ item.remark }}</text>
+            <text v-if="item.remark" class="item__remark">备注：{{ item.remark }}</text>
           </view>
         </view>
 
-        <view v-if="order.orderRemark" class="note">整体备注：{{ order.orderRemark }}</view>
+        <view class="note">整体备注：{{ order.orderRemark || "无" }}</view>
 
         <view class="order__actions">
           <view class="btn btn--line" @click="loadOrders">暂不接</view>
@@ -202,6 +202,17 @@ function waitText(order: Order): string {
   color: $meal-text;
 }
 
+/* 菜品备注：与制作中页一致的醒目样式 */
+.item__remark {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 22rpx;
+  color: $meal-primary;
+  background-color: $meal-primary-soft;
+  padding: 6rpx 14rpx;
+  border-radius: 8rpx;
+}
+
 .note {
   margin-top: 20rpx;
   padding: 16rpx 20rpx;
@@ -209,6 +220,7 @@ function waitText(order: Order): string {
   background-color: $meal-primary-soft;
   color: $meal-primary;
   font-size: 24rpx;
+  font-weight: 600;
 }
 
 .order__actions {

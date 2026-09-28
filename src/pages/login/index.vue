@@ -240,8 +240,15 @@ function goNext() {
 
 <style lang="scss" scoped>
 .login {
-  height: 100vh;
-  /* 全屏固定，内容不足一屏时整页不可上下滚动 */
+  /* 全屏固定：固定定位铺满视口，整页不可上下滚动。
+     不用 height: 100vh —— view 默认 content-box，100vh 再加上下 padding 会超出视口，
+     手机浏览器的 100vh 还包含地址栏。 */
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  box-sizing: border-box;
   overflow: hidden;
   /* 本页是自定义导航栏（navigationStyle: custom），App 端要给状态栏留出高度 */
   padding: calc(160rpx + var(--status-bar-height)) 52rpx 60rpx;
