@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onShow } from "@dcloudio/uni-app";
+import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { cancelOrder, myOrders } from "@/api/order";
 import AppDialog from "@/components/AppDialog.vue";
 import { confirm } from "@/composables/useDialog";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
+import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const FILTERS = [
   { key: "", text: "全部" },
@@ -16,6 +17,7 @@ const FILTERS = [
 const orders = ref<Order[]>([]);
 const activeStatus = ref("");
 const loading = ref(false);
+useOrderNotifierLifecycle();
 
 onShow(() => {
   loadOrders();

@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { getInfo, logout as logoutApi } from "@/api/auth";
 import { ROLE_CHEF, ROLE_MANAGER, type UserInfo, type ViewMode } from "@/types";
 import { getToken, removeToken, setToken } from "@/utils/auth";
+import { stopOrderNotifier } from "@/utils/notify";
 
 const VIEW_MODE_KEY = "meal-view-mode";
 
@@ -109,6 +110,7 @@ export const useUserStore = defineStore("user", {
       this.reset();
     },
     reset() {
+      stopOrderNotifier();
       this.token = "";
       this.user = null;
       this.roles = [];

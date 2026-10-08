@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { onShow } from "@dcloudio/uni-app";
+import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import AppDialog from "@/components/AppDialog.vue";
 import TabBar from "@/components/TabBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { useCartStore } from "@/store/cart";
 import { useUserStore } from "@/store/user";
+import { useOrderNotifierLifecycle } from "@/utils/notify";
 import type { CartLine } from "@/store/cart";
 
 const ORDER_REMARK_KEY = "meal-order-remark";
@@ -44,6 +45,7 @@ function shuffle<T>(arr: T[]): T[] {
 
 const cartStore = useCartStore();
 const userStore = useUserStore();
+useOrderNotifierLifecycle();
 
 const orderRemark = ref("");
 const editingId = ref<number | null>(null);

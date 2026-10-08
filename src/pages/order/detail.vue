@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { onLoad, onShow } from "@dcloudio/uni-app";
+import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { cancelOrder, orderDetail } from "@/api/order";
 import AppDialog from "@/components/AppDialog.vue";
 import { confirm } from "@/composables/useDialog";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
+import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const orderId = ref(0);
 const order = ref<Order | null>(null);
 const loading = ref(true);
+useOrderNotifierLifecycle();
 
 onLoad((options) => {
   orderId.value = Number(options?.orderId || 0);

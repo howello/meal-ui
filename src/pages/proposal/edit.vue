@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { listCategory } from "@/api/dish";
 import { submitProposal } from "@/api/proposal";
 import { uploadImage } from "@/api/upload";
 import type { Category } from "@/types";
+import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const categories = ref<Category[]>([]);
 const categoryIndex = ref(-1);
@@ -13,6 +14,7 @@ const description = ref("");
 const reason = ref("");
 const image = ref("");
 const submitting = ref(false);
+useOrderNotifierLifecycle();
 
 onLoad(async () => {
   try {

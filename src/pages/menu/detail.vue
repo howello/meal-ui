@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { getDish } from "@/api/dish";
 import { useCartStore } from "@/store/cart";
 import type { Dish, Ingredient } from "@/types";
+import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const cartStore = useCartStore();
 
@@ -13,6 +14,7 @@ const count = ref(1);
 const loading = ref(true);
 /** 只读模式：来自制作中页跳转时隐藏加入购物车等加购交互，仅展示菜品信息 */
 const readonly = ref(false);
+useOrderNotifierLifecycle();
 
 onLoad(async (options) => {
   const dishId = Number(options?.dishId || 0);

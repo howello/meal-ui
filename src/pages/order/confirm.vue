@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { submitOrder, type SubmitOrderItem } from "@/api/order";
 import { useCartStore } from "@/store/cart";
+import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const ORDER_REMARK_KEY = "meal-order-remark";
 
 const cartStore = useCartStore();
+useOrderNotifierLifecycle();
 
 const orderRemark = ref("");
 const now = ref("");

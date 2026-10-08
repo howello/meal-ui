@@ -78,6 +78,17 @@ export interface Order {
   reviewed?: boolean;
 }
 
+/** 订单流转通知 */
+export interface OrderNotification {
+  id: string;
+  type: "NEW_ORDER" | "ORDER_ACCEPTED" | "ORDER_COMPLETED" | "ORDER_RATED";
+  orderId: number;
+  title: string;
+  content: string;
+  extra?: Record<string, unknown>;
+  createTime: number;
+}
+
 /** 评价 */
 export interface Review {
   reviewId?: number;

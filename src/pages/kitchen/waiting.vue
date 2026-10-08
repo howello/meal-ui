@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onShow } from "@dcloudio/uni-app";
+import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { acceptOrder, kitchenOrders } from "@/api/order";
 import TabBar from "@/components/TabBar.vue";
 import { useUserStore } from "@/store/user";
+import { useOrderNotifierLifecycle } from "@/utils/notify";
 import { ORDER_STATUS, type Order } from "@/types";
 
 const userStore = useUserStore();
+useOrderNotifierLifecycle();
 
 const orders = ref<Order[]>([]);
 const loading = ref(false);

@@ -3,6 +3,7 @@ import { onLoad } from "@dcloudio/uni-app";
 import { reactive, ref } from "vue";
 import { getCaptcha, login, type CaptchaInfo } from "@/api/auth";
 import { useUserStore } from "@/store/user";
+import { stopOrderNotifier } from "@/utils/notify";
 import { svgIcon } from "@/utils/icons";
 
 const LOGIN_REMEMBER_KEY = "meal-login-remember";
@@ -174,6 +175,7 @@ async function submit() {
       client: "meal",
     });
     userStore.setToken(res.token);
+    stopOrderNotifier();
     saveRemembered();
     await userStore.fetchInfo();
     goNext();

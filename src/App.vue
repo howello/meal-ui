@@ -2,14 +2,13 @@
 import { onLaunch } from "@dcloudio/uni-app";
 import { useCartStore } from "@/store/cart";
 import { useUserStore } from "@/store/user";
-import { startOrderNotifier } from "@/utils/notify";
+import { useOrderNotifierAppLifecycle } from "@/utils/notify";
+
+useOrderNotifierAppLifecycle();
 
 onLaunch(() => {
-  // 启动时把本地 token 与购物车恢复进内存，页面拿到的就是最新状态
   useUserStore().restore();
   useCartStore().restore();
-  // 订单流转提醒：前端轮询，App 端本地通知 / H5 端 toast
-  startOrderNotifier();
 });
 </script>
 

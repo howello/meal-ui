@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onShow } from "@dcloudio/uni-app";
+import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { myOrders } from "@/api/order";
 import { myProposals } from "@/api/proposal";
@@ -8,8 +8,10 @@ import AppDialog from "@/components/AppDialog.vue";
 import TabBar from "@/components/TabBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { useUserStore } from "@/store/user";
+import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const userStore = useUserStore();
+useOrderNotifierLifecycle();
 
 const stats = ref({ orders: 0, reviews: 0, proposals: 0 });
 

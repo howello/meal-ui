@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { onShow } from "@dcloudio/uni-app";
+import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { myProposals } from "@/api/proposal";
 import { PROPOSAL_STATUS_TEXT, type Proposal } from "@/types";
+import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const proposals = ref<Proposal[]>([]);
 const loading = ref(false);
+useOrderNotifierLifecycle();
 
 onShow(() => {
   loadProposals();

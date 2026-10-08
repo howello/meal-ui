@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { onShow } from "@dcloudio/uni-app";
+import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { myReviews } from "@/api/review";
 import type { Review } from "@/types";
+import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const reviews = ref<Review[]>([]);
 const loading = ref(false);
+useOrderNotifierLifecycle();
 
 onShow(() => {
   loadReviews();

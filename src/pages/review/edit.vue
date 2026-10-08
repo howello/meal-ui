@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { orderDetail } from "@/api/order";
 import { submitReview } from "@/api/review";
 import { uploadImage } from "@/api/upload";
 import type { Order } from "@/types";
+import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const SCORE_TEXT: Record<number, string> = {
   1: "不太行",
@@ -21,6 +22,7 @@ const content = ref("");
 const images = ref<string[]>([]);
 const anonymous = ref(false);
 const submitting = ref(false);
+useOrderNotifierLifecycle();
 
 onLoad(async (options) => {
   orderId.value = Number(options?.orderId || 0);

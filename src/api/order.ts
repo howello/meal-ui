@@ -1,4 +1,4 @@
-import type { Order } from "@/types";
+import type { Order, OrderNotification } from "@/types";
 import { request, requestPage, requestVoid } from "@/utils/request";
 
 export interface SubmitOrderItem {
@@ -40,4 +40,9 @@ export function acceptOrder(orderId: number) {
 /** 标记完成 */
 export function finishOrder(orderId: number) {
   return requestVoid({ url: `/meal/order/finish/${orderId}`, method: "PUT" });
+}
+
+/** 轮询当前登录账号可读取的通知队列，不传客户端身份 ID */
+export function pollOrderNotifications(role: "user" | "chef") {
+  return request<OrderNotification[]>({ url: "/meal/notify/poll", data: { role } });
 }
