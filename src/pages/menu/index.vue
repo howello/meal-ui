@@ -25,6 +25,8 @@ const refreshing = ref(false);
 const scrollTo = ref(0);
 /* 当前容器内已滚动像素（来自 scroll 事件，用于定位计算） */
 let scrolledTop = 0;
+/* 滚动内容总高（来自 scroll 事件，用于判断是否已滚到底） */
+let scrollContentHeight = 0;
 /* 高亮计算节流 use */
 let rafId: number | null = null;
 let measureVersion = 0;
@@ -76,6 +78,7 @@ async function onRefresh() {
     activeCategoryId.value = undefined;
     scrollTo.value = 0;
     scrolledTop = 0;
+    scrollContentHeight = 0;
     await nextTick();
     await measureAndHighlight();
   } finally {
@@ -207,15 +210,21 @@ function measureGroups(): Promise<{ box: UniApp.NodeInfo | null; rects: UniApp.N
   });
 }
 
-/** 根据「组顶 ≤ 容器可视顶 + 阈值」的最后一个分组，滚动到左栏高亮 */
-function computeActive(rects: UniApp.NodeInfo[], boxTop: number) {
+/** 根据「组顶 ≤ 容器可视顶 + 阈值」的最后一个分组，滚动到左栏高亮。
+ *  atBottom 为真时（已滚到底）直接高亮最后一个分组：最后一个分组往往顶不到容器顶，
+ *  否则点它/滚到底都会错误地高亮倒数第二个分组。 */
+function computeActive(rects: UniApp.NodeInfo[], boxTop: number, atBottom = false) {
   const threshold = 0; // 只在分组顶部到达容器顶部时切换，避免提前高亮
   let idx = -1;
-  rects.forEach((r, i) => {
-    if (r && r.top !== undefined && r.top <= boxTop + threshold) {
-      idx = i;
-    }
-  });
+  if (atBottom && rects.length > 0) {
+    idx = rects.length - 1;
+  } else {
+    rects.forEach((r, i) => {
+      if (r && r.top !== undefined && r.top <= boxTop + threshold) {
+        idx = i;
+      }
+    });
+  }
   const g = groups.value[idx];
   const target = g ? g.cat.categoryId : undefined;
   if (target !== activeCategoryId.value) {
@@ -239,13 +248,21 @@ async function measureAndHighlight(retry = 0) {
     }
     return;
   }
-  computeActive(r.rects, r.box.top);
+  // 已滚到底：容器滚动距离 + 可视高 ≥ 内容总高（留 2px 容差）
+  const boxHeight = r.box.height ?? 0;
+  const atBottom =
+    scrollContentHeight > 0 && boxHeight > 0 && scrolledTop + boxHeight >= scrollContentHeight - 2;
+  computeActive(r.rects, r.box.top, atBottom);
 }
 
 /** 右侧滚动事件：更新已滚动距离并实时高亮当前分组（节流到一帧内） */
-function onDishScroll(e: { detail?: { scrollTop?: number } }) {
+function onDishScroll(e: { detail?: { scrollTop?: number; scrollHeight?: number } }) {
   const t = e?.detail?.scrollTop ?? 0;
   scrolledTop = t;
+  const h = e?.detail?.scrollHeight;
+  if (typeof h === "number" && h > 0) {
+    scrollContentHeight = h;
+  }
   if (rafId != null) {
     return;
   }
@@ -408,8 +425,9 @@ async function pickCategory(categoryId: number) {
             </view>
           </view>
 
-          <!-- 尾部分组也提供与可视区等高的滚动空间，确保短分组也能滚到顶部。
-               放在内容末尾，而不是滚动容器自身的 padding 上，避免撑高容器把可视区挤没。 -->
+          <!-- 底部为固定 TabBar 让位：TabBar 是 fixed 覆盖层，滚动区底部会被它压住，
+               这里补一段与 TabBar 等高的占位（正好被 TabBar 盖住，不会露出空白），
+               保证最后一道菜的标签与加减控件完整显示在 TabBar 上方。 -->
           <view class="menu-tail"></view>
         </template>
       </scroll-view>
@@ -501,10 +519,10 @@ async function pickCategory(categoryId: number) {
   background-color: $meal-card;
 }
 
-/* 尾部留白：让最后一个分组也能滚到容器顶部（配合左侧分类点击定位） */
+/* 与固定底部 TabBar（108rpx + 安全区）等高，另留 12rpx 呼吸位。
+   本段会被 TabBar 完全遮住，只用来把最后一道菜顶到 TabBar 上方。 */
 .menu-tail {
-  height: 100vh;
-  height: calc(100vh + env(safe-area-inset-bottom));
+  height: calc(120rpx + env(safe-area-inset-bottom));
 }
 
 .menu-group {
