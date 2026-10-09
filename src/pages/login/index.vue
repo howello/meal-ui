@@ -4,7 +4,6 @@ import { reactive, ref } from "vue";
 import { getCaptcha, login, type CaptchaInfo } from "@/api/auth";
 import { useUserStore } from "@/store/user";
 import { stopOrderNotifier } from "@/utils/notify";
-import { svgIcon } from "@/utils/icons";
 
 const LOGIN_REMEMBER_KEY = "meal-login-remember";
 const REDIRECT_KEY = "meal-redirect";
@@ -15,9 +14,6 @@ interface RememberedLogin {
 }
 
 const userStore = useUserStore();
-
-/** 顶部 logo 图标 */
-const svgIconUrl = svgIcon("menu", "#FFFFFF");
 
 const form = reactive({
   username: "",
@@ -203,7 +199,7 @@ function goNext() {
 <template>
   <view class="login">
     <view class="login__logo">
-      <image class="login__logo-img" :src="svgIconUrl" />
+      <image class="login__logo-img" src="/static/logo.png" mode="aspectFit" />
     </view>
     <text class="login__title">家里吃什么</text>
     <text class="login__sub">登录后开始点餐</text>
@@ -263,16 +259,17 @@ function goNext() {
   width: 132rpx;
   height: 132rpx;
   border-radius: 40rpx;
-  background: linear-gradient(135deg, $meal-primary-2, $meal-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* logo 自带白色底，这里做成圆角白色磁贴（App 图标观感），
+     不再叠橙色渐变，避免蓝底 logo 与橙色底撞色 */
+  overflow: hidden;
+  box-shadow: 0 8rpx 24rpx rgba(30, 33, 38, 0.12);
   margin-bottom: 44rpx;
 }
 
 .login__logo-img {
-  width: 68rpx;
-  height: 68rpx;
+  width: 132rpx;
+  height: 132rpx;
+  display: block;
 }
 
 .login__title {
