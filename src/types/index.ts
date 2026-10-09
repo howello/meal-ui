@@ -117,6 +117,18 @@ export interface Proposal {
   categoryNames?: string;
   description?: string;
   image?: string;
+  /** 标签，逗号分隔（可由一键 AI 生成） */
+  tags?: string;
+  /** 耗时 */
+  duration?: string;
+  /** 难度 */
+  level?: string;
+  /** 用料清单 JSON，形如 [{"name":"五花肉","amount":"600 g"}] */
+  ingredients?: string;
+  /** 做法步骤 JSON，形如 ["切块","焯水"] */
+  steps?: string;
+  /** 小贴士 JSON，形如 ["小火慢炖"] */
+  tips?: string;
   reason?: string;
   /** 0待审核 1已通过 2已驳回 */
   status?: string;

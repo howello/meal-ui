@@ -7,6 +7,13 @@ export interface SubmitProposalBody {
   categoryIds?: number[];
   description?: string;
   image?: string;
+  /** 以下扩展字段可由一键 AI 生成后一并提交 */
+  tags?: string;
+  duration?: string;
+  level?: string;
+  ingredients?: string;
+  steps?: string;
+  tips?: string;
   reason?: string;
 }
 

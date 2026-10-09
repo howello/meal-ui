@@ -2,6 +2,7 @@
 import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { listCategory } from "@/api/dish";
+import { aiGenerateDish } from "@/api/ai";
 import { submitProposal } from "@/api/proposal";
 import { uploadImage } from "@/api/upload";
 import type { Category } from "@/types";
@@ -13,7 +14,14 @@ const name = ref("");
 const description = ref("");
 const reason = ref("");
 const image = ref("");
+const tags = ref("");
+const duration = ref("");
+const level = ref("");
+const ingredients = ref("");
+const steps = ref("");
+const tips = ref("");
 const submitting = ref(false);
+const aiLoading = ref(false);
 useOrderNotifierLifecycle();
 
 onLoad(async () => {
@@ -56,6 +64,58 @@ function pickImage() {
   });
 }
 
+/** 一键 AI：只补齐当前为空的字段，已填内容不覆盖 */
+async function handleAiGenerate() {
+  const dishName = name.value.trim();
+  if (!dishName) {
+    uni.showToast({ title: "请先填写菜名", icon: "none" });
+    return;
+  }
+  if (aiLoading.value) {
+    return;
+  }
+  aiLoading.value = true;
+  try {
+    const result = await aiGenerateDish({
+      name: dishName,
+      current: {
+        categoryIds: selectedCategoryIds.value.length ? selectedCategoryIds.value : undefined,
+        description: description.value || undefined,
+        cover: image.value || undefined,
+        tags: tags.value || undefined,
+        duration: duration.value || undefined,
+        level: level.value || undefined,
+        ingredients: ingredients.value || undefined,
+        steps: steps.value || undefined,
+        tips: tips.value || undefined,
+      },
+    });
+    const fields = result.fields || {};
+    if (fields.description && !description.value) description.value = fields.description;
+    if (fields.tags && !tags.value) tags.value = fields.tags;
+    if (fields.duration && !duration.value) duration.value = fields.duration;
+    if (fields.level && !level.value) level.value = fields.level;
+    if (fields.ingredients && !ingredients.value) ingredients.value = fields.ingredients;
+    if (fields.steps && !steps.value) steps.value = fields.steps;
+    if (fields.tips && !tips.value) tips.value = fields.tips;
+    if (result.cover && !image.value) image.value = result.cover;
+    if (result.matchedCategoryIds && result.matchedCategoryIds.length && !selectedCategoryIds.value.length) {
+      selectedCategoryIds.value = result.matchedCategoryIds;
+    }
+    if (result.unmatchedCategoryNames && result.unmatchedCategoryNames.length) {
+      uni.showToast({ title: `未匹配分类：${result.unmatchedCategoryNames.join("、")}`, icon: "none" });
+    } else if (result.imageError) {
+      uni.showToast({ title: `封面图未生成：${result.imageError}`, icon: "none" });
+    } else {
+      uni.showToast({ title: "已补齐空字段", icon: "none" });
+    }
+  } catch (e) {
+    // 错误提示已由请求层给出
+  } finally {
+    aiLoading.value = false;
+  }
+}
+
 async function submit() {
   if (!name.value.trim()) {
     uni.showToast({ title: "请填写菜名", icon: "none" });
@@ -72,6 +132,12 @@ async function submit() {
       description: description.value,
       reason: reason.value,
       image: image.value || undefined,
+      tags: tags.value || undefined,
+      duration: duration.value || undefined,
+      level: level.value || undefined,
+      ingredients: ingredients.value || undefined,
+      steps: steps.value || undefined,
+      tips: tips.value || undefined,
     });
     uni.showToast({ title: "提案已提交", icon: "none" });
     setTimeout(() => {
@@ -92,6 +158,13 @@ async function submit() {
     <view class="field">
       <text class="field__label">菜名</text>
       <input v-model="name" class="field__input" placeholder="如：水煮牛肉" placeholder-class="ph" />
+    </view>
+
+    <view class="ai-row">
+      <view class="ai-btn" :class="{ 'ai-btn--disabled': aiLoading }" @click="handleAiGenerate">
+        {{ aiLoading ? "AI 生成中…" : "一键 AI 补齐" }}
+      </view>
+      <text class="ai-hint">填好菜名后点一下，自动补齐空字段</text>
     </view>
 
     <view class="field field--col">
@@ -137,6 +210,25 @@ async function submit() {
         placeholder="这周想吃点辣的…"
         placeholder-class="ph"
       />
+    </view>
+
+    <view class="card">
+      <text class="section-title">更多信息（选填，可由一键 AI 生成）</text>
+      <view class="mini-field">
+        <text class="mini-field__label">标签</text>
+        <input v-model="tags" class="mini-field__input" placeholder="逗号分隔，如 家常,下饭" placeholder-class="ph" />
+      </view>
+      <view class="mini-field">
+        <text class="mini-field__label">耗时</text>
+        <input v-model="duration" class="mini-field__input" placeholder="如 90 分钟" placeholder-class="ph" />
+      </view>
+      <view class="mini-field">
+        <text class="mini-field__label">难度</text>
+        <input v-model="level" class="mini-field__input" placeholder="如 中等" placeholder-class="ph" />
+      </view>
+      <textarea v-model="ingredients" class="textarea" placeholder="用料（JSON，一般无需修改）" placeholder-class="ph" />
+      <textarea v-model="steps" class="textarea" placeholder="做法（JSON，一般无需修改）" placeholder-class="ph" />
+      <textarea v-model="tips" class="textarea" placeholder="小贴士（JSON，一般无需修改）" placeholder-class="ph" />
     </view>
 
     <view class="submit" :class="{ 'submit--disabled': submitting }" @click="submit">
@@ -244,6 +336,53 @@ async function submit() {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.ai-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.ai-btn {
+  flex-shrink: 0;
+  padding: 16rpx 32rpx;
+  border-radius: 999rpx;
+  background-color: $meal-primary-soft;
+  color: $meal-primary;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.ai-btn--disabled {
+  opacity: 0.6;
+}
+
+.ai-hint {
+  flex: 1;
+  font-size: 22rpx;
+  color: $meal-text-2;
+}
+
+.mini-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid $meal-line;
+}
+
+.mini-field__label {
+  font-size: 26rpx;
+  color: $meal-text-2;
+}
+
+.mini-field__input {
+  flex: 1;
+  text-align: right;
+  font-size: 26rpx;
+  color: $meal-text;
 }
 
 .submit {
