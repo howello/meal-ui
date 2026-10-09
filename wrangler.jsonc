@@ -1,0 +1,11 @@
+{
+  // Cloudflare Workers 静态资源部署配置（Git 集成：构建 npm run build:h5 → 部署 dist/build/h5）
+  // 产物目录由 uni-app 决定：H5 输出在 dist/build/h5，不是仓库根的 dist。
+  "name": "meal-ui",
+  // 本机有两个 Cloudflare 账号，固定到点餐端使用的这个，避免 wrangler 报「More than one account」
+  "account_id": "9c08876dd469f288cd7e382b78b88ce8",
+  "compatibility_date": "2025-03-31",
+  "assets": {
+    "directory": "./dist/build/h5"
+  }
+}
