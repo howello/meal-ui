@@ -31,6 +31,51 @@ $meal-success: #0E9F5E;
 $meal-primary-shadow: rgba(255, 107, 53, 0.35);
 $meal-tabbar-height: 108rpx;
 
+/* ---- Liquid Glass 主题令牌（Apple 液态玻璃 / 浅色蓝紫环境光 + 暖橙强调）----
+   定稿参数：超透底 + 亮描边；仅核心页面启用，其余页面沿用 $meal-* 不受影响 */
+/* 环境光三色（页面背景渐变 / 柔和光斑） */
+$lg-amb-1: #93a6ff;
+$lg-amb-2: #c6a6ff;
+$lg-amb-3: #9fd4ff;
+/* 玻璃材质透明度（0~1，越小越透） */
+$lg-glass-a: 0.14; /* 普通卡片 */
+$lg-glass-strong-a: 0.24; /* 强玻璃：TabBar / 结算条 / 弹窗 */
+$lg-glass-weak-a: 0.07; /* 弱玻璃：分类栏 / 内嵌区 */
+$lg-border-a: 0.62; /* 边缘高光描边 */
+$lg-blur: 30px; /* 背景模糊半径 */
+$lg-sat: 190%; /* 背景饱和度增强 */
+$lg-glass: rgba(255, 255, 255, $lg-glass-a);
+$lg-glass-strong: rgba(255, 255, 255, $lg-glass-strong-a);
+$lg-glass-weak: rgba(255, 255, 255, $lg-glass-weak-a);
+$lg-border: rgba(255, 255, 255, $lg-border-a);
+/* 顶部 rim light + 内描边高光 */
+$lg-edge: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 0 0.5px rgba(255, 255, 255, 0.4);
+/* 柔和外阴影（营造层次，非厚重黑投影） */
+$lg-shadow: 0 10px 30px rgba(70, 82, 150, 0.13);
+$lg-shadow-sm: 0 6px 18px rgba(70, 82, 150, 0.09);
+/* 深墨文字（保证对比度，不做模糊文字） */
+$lg-ink: #1b2130;
+$lg-ink-2: #5c6478;
+$lg-ink-3: #8b93a7;
+$lg-line: rgba(120, 130, 170, 0.16);
+/* 强调色：暖橙（保留品牌识别度） */
+$lg-accent: #ff6b35;
+$lg-accent-2: #ffa061;
+$lg-accent-soft: rgba(255, 107, 53, 0.14);
+$lg-accent-shadow: rgba(255, 107, 53, 0.4);
+
+/* 环境光背景（浅蓝紫渐变 + 柔和光斑）：page 与 .glass-page 共用 */
+@mixin lg-ambient-bg {
+  background:
+    radial-gradient(24% 18% at 24% 16%, rgba(255, 255, 255, 0.85), transparent 70%),
+    radial-gradient(26% 20% at 82% 32%, rgba(180, 200, 255, 0.55), transparent 72%),
+    radial-gradient(22% 18% at 40% 86%, rgba(210, 180, 255, 0.5), transparent 72%),
+    radial-gradient(120% 78% at 12% -6%, $lg-amb-1 0%, transparent 54%),
+    radial-gradient(105% 70% at 104% 14%, $lg-amb-2 0%, transparent 52%),
+    radial-gradient(130% 90% at 50% 112%, $lg-amb-3 0%, transparent 58%),
+    linear-gradient(165deg, #f2f5ff 0%, #e9edff 42%, #f4ecff 100%);
+}
+
 /* 行为相关颜色 */
 $uni-color-primary: #007aff;
 $uni-color-success: #4cd964;

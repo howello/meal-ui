@@ -129,25 +129,28 @@ function waitText(order: Order): string {
 </template>
 
 <style lang="scss" scoped>
+/* 顶部工作台标题：玻璃条（自定义导航栏，App 端给状态栏留高度） */
 .header {
   flex: 0 0 auto;
-  background-color: $meal-primary;
-  color: #fff;
-  /* 本页是自定义导航栏（navigationStyle: custom），App 端要给状态栏留出高度 */
   padding: calc(60rpx + var(--status-bar-height)) 28rpx 32rpx;
   border-radius: 0 0 36rpx 36rpx;
+  border-bottom: 1rpx solid $lg-border;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur($lg-blur) saturate($lg-sat);
+  -webkit-backdrop-filter: blur($lg-blur) saturate($lg-sat);
 }
 
 .header__title {
   display: block;
   font-size: 36rpx;
   font-weight: 700;
+  color: $lg-ink;
 }
 
 .header__sub {
   display: block;
   font-size: 24rpx;
-  opacity: 0.9;
+  color: $lg-ink-2;
   margin-top: 8rpx;
 }
 
@@ -158,7 +161,7 @@ function waitText(order: Order): string {
 .order__who {
   font-size: 28rpx;
   font-weight: 700;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .timer {
@@ -166,7 +169,7 @@ function waitText(order: Order): string {
   color: $meal-warning;
   background-color: #fff4e5;
   padding: 6rpx 16rpx;
-  border-radius: 8rpx;
+  border-radius: 999rpx;
   font-weight: 600;
 }
 
@@ -182,7 +185,7 @@ function waitText(order: Order): string {
   height: 76rpx;
   flex: 0 0 76rpx;
   border-radius: 16rpx;
-  background: linear-gradient(135deg, #ffc49b, #ff7a45);
+  background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
   font-size: 18rpx;
   display: flex;
@@ -201,7 +204,7 @@ function waitText(order: Order): string {
 
 .item__name {
   font-size: 26rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 /* 菜品备注：与制作中页一致的醒目样式 */
@@ -209,8 +212,8 @@ function waitText(order: Order): string {
   display: inline-block;
   align-self: flex-start;
   font-size: 22rpx;
-  color: $meal-primary;
-  background-color: $meal-primary-soft;
+  color: $lg-accent;
+  background-color: $lg-accent-soft;
   padding: 6rpx 14rpx;
   border-radius: 8rpx;
 }
@@ -219,8 +222,8 @@ function waitText(order: Order): string {
   margin-top: 20rpx;
   padding: 16rpx 20rpx;
   border-radius: 16rpx;
-  background-color: $meal-primary-soft;
-  color: $meal-primary;
+  background-color: $lg-accent-soft;
+  color: $lg-accent;
   font-size: 24rpx;
   font-weight: 600;
 }
@@ -237,21 +240,23 @@ function waitText(order: Order): string {
   line-height: 76rpx;
   text-align: center;
   border-radius: 999rpx;
-  background-color: $meal-primary;
   color: #fff;
   font-size: 26rpx;
-  font-weight: 600;
+  font-weight: 700;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 16rpx 36rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .btn--line {
   flex: 1;
-  background-color: transparent;
-  border: 1rpx solid $meal-line;
-  color: $meal-text-2;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1rpx solid $lg-line;
+  color: $lg-ink-2;
   font-weight: 400;
+  box-shadow: none;
 }
 
-/* 骨架屏 */
+/* 骨架屏：半透明占位，贴合玻璃风格 */
 .skeleton-grid {
   display: flex;
   flex-direction: column;
@@ -259,7 +264,7 @@ function waitText(order: Order): string {
 }
 
 .skeleton-card {
-  background-color: $meal-card;
+  background: rgba(255, 255, 255, 0.5);
   border-radius: 24rpx;
   padding: 24rpx;
   display: flex;
@@ -283,7 +288,7 @@ function waitText(order: Order): string {
 }
 
 .shimmer {
-  background: linear-gradient(90deg, #eee 25%, #f5f5f5 37%, #eee 63%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.45) 25%, rgba(255, 255, 255, 0.15) 37%, rgba(255, 255, 255, 0.45) 63%);
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
 }

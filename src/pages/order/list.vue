@@ -147,20 +147,22 @@ function doCancel(order: Order) {
   margin-bottom: 20rpx;
 }
 
+/* 筛选 chip：玻璃胶囊，选中态暖橙渐变 */
 .chip {
   padding: 10rpx 28rpx;
   border-radius: 999rpx;
-  background-color: $meal-card;
-  border: 1rpx solid $meal-line;
-  color: $meal-text-2;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1rpx solid $lg-border;
+  color: $lg-ink-2;
   font-size: 24rpx;
 }
 
 .chip--on {
-  background-color: $meal-primary;
-  border-color: $meal-primary;
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
+  border-color: transparent;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 10rpx 22rpx $lg-accent-shadow;
 }
 
 .order {
@@ -178,7 +180,7 @@ function doCancel(order: Order) {
   height: 92rpx;
   border-radius: 18rpx;
   overflow: hidden;
-  background: linear-gradient(135deg, #ffc49b, #ff7a45);
+  background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -205,22 +207,25 @@ function doCancel(order: Order) {
 .btn {
   padding: 10rpx 28rpx;
   border-radius: 999rpx;
-  background-color: $meal-primary;
   color: #fff;
   font-size: 24rpx;
+  font-weight: 700;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 10rpx 22rpx $lg-accent-shadow;
 }
 
-/* 取消订单：白底 + 危险色描边，和订单详情页一致 */
+/* 取消订单：玻璃底 + 危险色描边，和订单详情页一致 */
 .btn--cancel {
-  background-color: $meal-card;
+  background: rgba(255, 255, 255, 0.6);
   border: 2rpx solid $meal-danger;
   color: $meal-danger;
+  box-shadow: none;
 }
 
 .tag {
   font-size: 22rpx;
   padding: 6rpx 16rpx;
-  border-radius: 8rpx;
+  border-radius: 999rpx;
   font-weight: 600;
 }
 
@@ -230,8 +235,8 @@ function doCancel(order: Order) {
 }
 
 .tag--primary {
-  background-color: $meal-primary-soft;
-  color: $meal-primary;
+  background-color: $lg-accent-soft;
+  color: $lg-accent;
 }
 
 .tag--ok {
@@ -240,7 +245,7 @@ function doCancel(order: Order) {
 }
 
 .tag--gray {
-  background-color: $meal-line;
-  color: $meal-text-2;
+  background-color: $lg-line;
+  color: $lg-ink-2;
 }
 </style>

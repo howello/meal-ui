@@ -43,7 +43,7 @@ const CHEF_TABS: TabItem[] = [
 const tabs = computed<TabItem[]>(() => (userStore.tabMode === "kitchen" ? CHEF_TABS : EATER_TABS));
 
 const activeColor = "#FF6B35";
-const normalColor = "#8B9199";
+const normalColor = "#8b93a7";
 
 function iconUrl(item: TabItem): string {
   return svgIcon(item.icon, item.key === props.active ? activeColor : normalColor);
@@ -58,7 +58,7 @@ function switchTo(item: TabItem) {
 </script>
 
 <template>
-  <view class="tabbar">
+  <view class="tabbar glass glass--strong">
     <view
       v-for="item in tabs"
       :key="item.key"
@@ -76,17 +76,19 @@ function switchTo(item: TabItem) {
 </template>
 
 <style lang="scss" scoped>
+/* 悬浮玻璃胶囊：底部导航整体做成一块磨砂玻璃，浮在内容之上 */
 .tabbar {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(16rpx + env(safe-area-inset-bottom));
   z-index: 100;
   display: flex;
+  align-items: center;
+  justify-content: space-around;
   height: 108rpx;
-  background-color: $meal-card;
-  border-top: 1rpx solid $meal-line;
-  padding-bottom: env(safe-area-inset-bottom);
+  border-radius: 44rpx;
+  padding: 0 12rpx;
 }
 
 .tab {
@@ -97,13 +99,16 @@ function switchTo(item: TabItem) {
   align-items: center;
   justify-content: center;
   gap: 4rpx;
+  height: 88rpx;
+  border-radius: 30rpx;
   font-size: 21rpx;
-  color: $meal-text-2;
+  color: $lg-ink-3;
 }
 
 .tab--on {
-  color: $meal-primary;
+  color: $lg-accent;
   font-weight: 600;
+  background: $lg-accent-soft;
 }
 
 .tab__icon {
@@ -113,7 +118,7 @@ function switchTo(item: TabItem) {
 
 .tab__badge {
   position: absolute;
-  top: 8rpx;
+  top: 10rpx;
   left: 50%;
   margin-left: 12rpx;
   min-width: 30rpx;

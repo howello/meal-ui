@@ -182,25 +182,28 @@ function cookText(order: Order): string {
 </template>
 
 <style lang="scss" scoped>
+/* 顶部工作台标题：玻璃条（自定义导航栏，App 端给状态栏留高度） */
 .header {
   flex: 0 0 auto;
-  background: linear-gradient(120deg, $meal-primary, $meal-primary-2);
-  color: #fff;
-  /* 本页是自定义导航栏（navigationStyle: custom），App 端要给状态栏留出高度 */
   padding: calc(60rpx + var(--status-bar-height)) 28rpx 32rpx;
   border-radius: 0 0 36rpx 36rpx;
+  border-bottom: 1rpx solid $lg-border;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur($lg-blur) saturate($lg-sat);
+  -webkit-backdrop-filter: blur($lg-blur) saturate($lg-sat);
 }
 
 .header__title {
   display: block;
   font-size: 36rpx;
   font-weight: 700;
+  color: $lg-ink;
 }
 
 .header__sub {
   display: block;
   font-size: 24rpx;
-  opacity: 0.9;
+  color: $lg-ink-2;
   margin-top: 8rpx;
 }
 
@@ -208,22 +211,23 @@ function cookText(order: Order): string {
   padding: 24rpx 24rpx 200rpx;
 }
 
+/* 左侧暖橙竖条标识「制作中」 */
 .order {
-  border-left: 6rpx solid $meal-primary;
+  border-left: 6rpx solid $lg-accent;
 }
 
 .order__who {
   font-size: 28rpx;
   font-weight: 700;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .timer {
   font-size: 22rpx;
-  color: $meal-primary;
-  background-color: $meal-primary-soft;
+  color: $lg-accent;
+  background-color: $lg-accent-soft;
   padding: 6rpx 16rpx;
-  border-radius: 8rpx;
+  border-radius: 999rpx;
   font-weight: 600;
 }
 
@@ -245,7 +249,7 @@ function cookText(order: Order): string {
   height: 76rpx;
   flex: 0 0 76rpx;
   border-radius: 16rpx;
-  background: linear-gradient(135deg, #ffc49b, #ff7a45);
+  background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
   font-size: 18rpx;
   display: flex;
@@ -264,7 +268,7 @@ function cookText(order: Order): string {
 
 .item__name {
   font-size: 26rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 /* 菜品备注：主题浅色底 + 主题色文字，从普通 tiny 提亮 */
@@ -272,8 +276,8 @@ function cookText(order: Order): string {
   display: inline-block;
   align-self: flex-start;
   font-size: 22rpx;
-  color: $meal-primary;
-  background-color: $meal-primary-soft;
+  color: $lg-accent;
+  background-color: $lg-accent-soft;
   padding: 6rpx 14rpx;
   border-radius: 8rpx;
 }
@@ -282,8 +286,8 @@ function cookText(order: Order): string {
   margin-top: 20rpx;
   padding: 16rpx 20rpx;
   border-radius: 16rpx;
-  background-color: $meal-primary-soft;
-  color: $meal-primary;
+  background-color: $lg-accent-soft;
+  color: $lg-accent;
   font-size: 24rpx;
   font-weight: 600;
 }
@@ -296,7 +300,7 @@ function cookText(order: Order): string {
   line-height: 48rpx;
   text-align: center;
   border-radius: 50%;
-  border: 1rpx solid $meal-line;
+  border: 1rpx solid $lg-line;
   color: #fff;
   font-size: 28rpx;
 }
@@ -309,7 +313,7 @@ function cookText(order: Order): string {
 .order__progress {
   margin-top: 20rpx;
   font-size: 22rpx;
-  color: $meal-text-2;
+  color: $lg-ink-2;
   text-align: right;
 }
 </style>

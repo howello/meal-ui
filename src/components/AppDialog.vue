@@ -35,13 +35,16 @@ onBeforeUnmount(() => {
 </template>
 
 <style lang="scss" scoped>
+/* 遮罩：轻微磨砂，突出玻璃弹窗又不喧宾夺主 */
 .app-dialog__mask {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(30, 35, 70, 0.28);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -50,10 +53,14 @@ onBeforeUnmount(() => {
 
 .app-dialog {
   width: 560rpx;
-  background-color: #fff;
-  border-radius: 28rpx;
+  border-radius: 40rpx;
   padding: 44rpx 36rpx 28rpx;
-  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.2);
+  border: 1px solid $lg-border;
+  box-shadow: $lg-shadow, $lg-edge;
+  /* 弹窗需要更实的底以保证文字可读，仍叠加背景模糊 */
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur($lg-blur) saturate(180%);
+  -webkit-backdrop-filter: blur($lg-blur) saturate(180%);
 }
 
 .app-dialog__title {
@@ -61,7 +68,7 @@ onBeforeUnmount(() => {
   text-align: center;
   font-size: 32rpx;
   font-weight: 700;
-  color: $meal-text;
+  color: $lg-ink;
   margin-bottom: 18rpx;
 }
 
@@ -69,7 +76,7 @@ onBeforeUnmount(() => {
   display: block;
   text-align: center;
   font-size: 28rpx;
-  color: $meal-text;
+  color: $lg-ink;
   line-height: 1.6;
   margin-bottom: 36rpx;
 }
@@ -90,12 +97,14 @@ onBeforeUnmount(() => {
 }
 
 .app-dialog__btn--cancel {
-  background-color: $meal-bg;
-  color: $meal-text-2;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid $lg-border;
+  color: $lg-ink-2;
 }
 
 .app-dialog__btn--confirm {
-  background-color: $meal-primary;
   color: #fff;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 16rpx 34rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 </style>

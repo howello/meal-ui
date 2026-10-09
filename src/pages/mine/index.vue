@@ -5,6 +5,7 @@ import { myOrders } from "@/api/order";
 import { myProposals } from "@/api/proposal";
 import { myReviews } from "@/api/review";
 import AppDialog from "@/components/AppDialog.vue";
+import GlassCard from "@/components/GlassCard.vue";
 import TabBar from "@/components/TabBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { useUserStore } from "@/store/user";
@@ -76,9 +77,9 @@ const avatarText = (): string => {
 </script>
 
 <template>
-  <view class="app-fixed">
+  <view class="app-fixed glass-page">
     <view class="app-fixed__scroll app-fixed__scroll--tabbed">
-      <view class="card profile">
+      <GlassCard class="profile">
         <view class="avatar">{{ avatarText() }}</view>
         <view class="profile__main">
           <view class="profile__name-row">
@@ -87,24 +88,24 @@ const avatarText = (): string => {
           </view>
           <text class="tiny">家庭 · {{ userStore.deptName || "我的家庭" }} · {{ userStore.user?.userName || "" }}</text>
         </view>
-      </view>
+      </GlassCard>
 
       <view class="stats">
-        <view class="stat" @click="go('/pages/order/list')">
+        <GlassCard class="stat" @click="go('/pages/order/list')">
           <text class="stat__value">{{ stats.orders }}</text>
           <text class="tiny">我的订单</text>
-        </view>
-        <view class="stat" @click="go('/pages/review/list')">
+        </GlassCard>
+        <GlassCard class="stat" @click="go('/pages/review/list')">
           <text class="stat__value">{{ stats.reviews }}</text>
           <text class="tiny">我的评价</text>
-        </view>
-        <view class="stat" @click="go('/pages/proposal/list')">
+        </GlassCard>
+        <GlassCard class="stat" @click="go('/pages/proposal/list')">
           <text class="stat__value">{{ stats.proposals }}</text>
           <text class="tiny">我的提案</text>
-        </view>
+        </GlassCard>
       </view>
 
-      <view class="menu">
+      <GlassCard :pad="false" class="menu">
         <view class="menu__item" @click="go('/pages/order/list')">
           <text class="menu__text">我的订单</text>
           <text class="chev">›</text>
@@ -121,9 +122,9 @@ const avatarText = (): string => {
           <text class="menu__text">提交新菜</text>
           <text class="chev">›</text>
         </view>
-      </view>
+      </GlassCard>
 
-      <view class="menu">
+      <GlassCard :pad="false" class="menu">
         <view v-if="userStore.canKitchen && userStore.tabMode === 'eater'" class="menu__item" @click="toKitchen">
           <text class="menu__text">厨师工作台</text>
           <text class="chev">›</text>
@@ -136,14 +137,14 @@ const avatarText = (): string => {
           <text class="menu__text">家庭与成员</text>
           <text class="tiny">在管理端维护</text>
         </view>
-      </view>
+      </GlassCard>
 
-      <view class="menu">
+      <GlassCard :pad="false" class="menu">
         <view class="menu__item" @click="doLogout">
           <text class="menu__text menu__text--danger">退出登录</text>
           <text class="chev">›</text>
         </view>
-      </view>
+      </GlassCard>
     </view>
 
     <TabBar active="mine" />
@@ -163,13 +164,14 @@ const avatarText = (): string => {
   width: 104rpx;
   height: 104rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ffc49b, #ff7a45);
+  background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
   font-size: 40rpx;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 16rpx 34rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .profile__main {
@@ -186,15 +188,15 @@ const avatarText = (): string => {
 .profile__name {
   font-size: 34rpx;
   font-weight: 700;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .tag {
   font-size: 20rpx;
   padding: 4rpx 14rpx;
-  border-radius: 8rpx;
-  background-color: $meal-primary-soft;
-  color: $meal-primary;
+  border-radius: 999rpx;
+  color: $lg-accent;
+  background: $lg-accent-soft;
   font-weight: 600;
 }
 
@@ -204,41 +206,43 @@ const avatarText = (): string => {
   margin-top: 24rpx;
 }
 
-.stat {
+/* 用后代选择器提高权重，覆盖 GlassCard 默认内边距 */
+.stats .stat {
   flex: 1;
-  background-color: $meal-card;
-  border-radius: 24rpx;
-  padding: 24rpx 8rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8rpx;
-  box-shadow: 0 6rpx 20rpx rgba(30, 33, 38, 0.06);
+  padding: 24rpx 8rpx;
 }
 
 .stat__value {
   font-size: 36rpx;
   font-weight: 700;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
+/* 分组列表：一张玻璃卡内多行，行间用细分隔线 */
 .menu {
   margin-top: 24rpx;
+  padding: 8rpx 10rpx;
 }
 
 .menu__item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: $meal-card;
-  padding: 28rpx 24rpx;
-  border-radius: 20rpx;
-  margin-bottom: 12rpx;
+  padding: 28rpx 22rpx;
+  border-radius: 16rpx;
+}
+
+.menu__item + .menu__item {
+  border-top: 1px solid $lg-line;
 }
 
 .menu__text {
   font-size: 28rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .menu__text--danger {
@@ -246,7 +250,7 @@ const avatarText = (): string => {
 }
 
 .chev {
-  color: $meal-text-2;
+  color: $lg-ink-3;
   font-size: 30rpx;
 }
 </style>

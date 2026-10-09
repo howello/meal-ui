@@ -2,6 +2,8 @@
 import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import AppDialog from "@/components/AppDialog.vue";
+import GlassButton from "@/components/GlassButton.vue";
+import GlassCard from "@/components/GlassCard.vue";
 import TabBar from "@/components/TabBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { useCartStore } from "@/store/cart";
@@ -153,7 +155,7 @@ function goConfirm() {
 </script>
 
 <template>
-  <view class="app-fixed">
+  <view class="app-fixed glass-page">
     <view class="app-fixed__head">
       <view class="row-between head">
         <text class="section-title">购物车</text>
@@ -163,7 +165,7 @@ function goConfirm() {
 
     <view class="app-fixed__scroll cart-scroll">
       <template v-if="!cartStore.isEmpty">
-        <view v-for="line in cartStore.lines" :key="line.dishId" class="card line">
+        <GlassCard v-for="line in cartStore.lines" :key="line.dishId" class="line">
           <image v-if="line.dishCover" class="line__cover" :src="line.dishCover" mode="aspectFill" />
           <view v-else class="line__cover line__cover--ph">{{ line.dishName }}</view>
           <view class="line__body">
@@ -208,9 +210,9 @@ function goConfirm() {
               <text class="tiny">共 {{ line.count }} 份</text>
             </view>
           </view>
-        </view>
+        </GlassCard>
 
-        <view class="card">
+        <GlassCard>
           <text class="section-title">整体备注</text>
           <input
             v-model="orderRemark"
@@ -219,18 +221,18 @@ function goConfirm() {
             placeholder-class="ph"
             @blur="saveOrderRemark"
           />
-        </view>
+        </GlassCard>
       </template>
 
       <view v-else class="empty">购物车还是空的，去点餐区看看</view>
     </view>
 
-    <view v-if="!cartStore.isEmpty" class="bottombar">
+    <view v-if="!cartStore.isEmpty" class="bottombar glass glass--strong">
       <view class="row-between bottombar__sum">
         <text class="muted">合计 <text class="sum">{{ cartStore.totalCount }}</text> 份菜</text>
         <text class="tiny">共 {{ cartStore.dishKinds }} 道</text>
       </view>
-      <view class="bottombar__btn" @click="goConfirm">去下单</view>
+      <GlassButton class="bottombar__btn" @click="goConfirm">去下单</GlassButton>
     </view>
 
     <TabBar active="cart" />
@@ -251,9 +253,10 @@ function goConfirm() {
   margin: -18rpx -24rpx -18rpx 0;
   line-height: 32rpx;
   font-size: 24rpx;
-  color: $meal-text-2;
+  color: $lg-ink-2;
 }
 
+/* 行卡片：玻璃底由 GlassCard 提供，这里只负责内部横向布局 */
 .line {
   display: flex;
   gap: 20rpx;
@@ -267,7 +270,7 @@ function goConfirm() {
 }
 
 .line__cover--ph {
-  background: linear-gradient(135deg, #ffc49b, #ff7a45);
+  background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
   font-size: 22rpx;
   display: flex;
@@ -283,8 +286,8 @@ function goConfirm() {
 
 .line__name {
   font-size: 28rpx;
-  font-weight: 600;
-  color: $meal-text;
+  font-weight: 700;
+  color: $lg-ink;
 }
 
 /* 删除 ✕：点击区域 68rpx 见方，负外边距让图标仍贴在卡片右上角 */
@@ -296,20 +299,21 @@ function goConfirm() {
   line-height: 68rpx;
   text-align: center;
   margin: -18rpx -18rpx -18rpx 0;
-  color: $meal-text-2;
+  color: $lg-ink-3;
   font-size: 26rpx;
 }
 
 .line__remark {
   display: block;
   font-size: 22rpx;
-  color: $meal-text-2;
+  color: $lg-ink-2;
   margin: 10rpx 0 16rpx;
 }
 
-/* 备注编辑器（快捷标签 + 自定义输入） */
+/* 备注编辑器（快捷标签 + 自定义输入）：弱玻璃内嵌区 */
 .remark-editor {
-  background-color: $meal-primary-soft;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid $lg-border;
   border-radius: 16rpx;
   padding: 16rpx;
   margin-bottom: 16rpx;
@@ -326,22 +330,22 @@ function goConfirm() {
   font-size: 22rpx;
   padding: 8rpx 20rpx;
   border-radius: 999rpx;
-  background-color: #fff;
-  color: $meal-text-2;
-  border: 1rpx solid $meal-line;
+  background: rgba(255, 255, 255, 0.6);
+  color: $lg-ink-2;
+  border: 1rpx solid $lg-border;
 }
 
 .remark-tag--on {
-  background-color: $meal-primary;
-  border-color: $meal-primary;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  border-color: transparent;
   color: #fff;
   font-weight: 600;
 }
 
 .remark-editor__input {
   font-size: 24rpx;
-  color: $meal-text;
-  background-color: #fff;
+  color: $lg-ink;
+  background: rgba(255, 255, 255, 0.6);
   border-radius: 12rpx;
   padding: 14rpx 16rpx;
 }
@@ -357,15 +361,17 @@ function goConfirm() {
   font-size: 24rpx;
   padding: 10rpx 28rpx;
   border-radius: 999rpx;
-  background-color: $meal-primary;
   color: #fff;
   font-weight: 600;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 10rpx 22rpx $lg-accent-shadow;
 }
 
 .remark-editor__btn--line {
-  background-color: transparent;
-  border: 1rpx solid $meal-line;
-  color: $meal-text-2;
+  background: transparent;
+  border: 1rpx solid $lg-border;
+  color: $lg-ink-2;
+  box-shadow: none;
 }
 
 .stepper {
@@ -380,42 +386,45 @@ function goConfirm() {
   line-height: 48rpx;
   text-align: center;
   border-radius: 50%;
-  border: 1rpx solid $meal-line;
-  color: $meal-text-2;
+  border: 1rpx solid rgba(255, 107, 53, 0.4);
+  color: $lg-accent;
+  background: rgba(255, 255, 255, 0.6);
   font-size: 28rpx;
 }
 
 .stepper__btn--plus {
-  background-color: $meal-primary;
-  border-color: $meal-primary;
   color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 10rpx 22rpx $lg-accent-shadow;
 }
 
 .stepper__count {
   font-size: 28rpx;
-  font-weight: 600;
+  font-weight: 700;
   min-width: 36rpx;
   text-align: center;
+  color: $lg-ink;
 }
 
 .remark-input {
   font-size: 26rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .ph {
-  color: $meal-text-2;
+  color: $lg-ink-3;
 }
 
+/* 悬浮玻璃结算条：浮在 TabBar 之上 */
 .bottombar {
   position: fixed;
-  left: 0;
-  right: 0;
-  /* 固定在 TabBar 上方，TabBar 自身会加底部安全区高度，这里同步让位 */
-  bottom: calc(108rpx + env(safe-area-inset-bottom));
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(140rpx + env(safe-area-inset-bottom));
   padding: 20rpx 24rpx;
-  background-color: $meal-card;
-  border-top: 1rpx solid $meal-line;
+  border-radius: 28rpx;
+  z-index: 8;
 }
 
 .bottombar__sum {
@@ -425,22 +434,20 @@ function goConfirm() {
 .sum {
   font-size: 32rpx;
   font-weight: 700;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
-.bottombar__btn {
-  height: 88rpx;
-  line-height: 88rpx;
-  text-align: center;
-  border-radius: 999rpx;
-  background-color: $meal-primary;
-  color: #fff;
+/* 结算按钮高度由本页覆盖，用后代选择器提高权重避免被 .gbtn 覆盖 */
+.bottombar .bottombar__btn {
+  height: 80rpx;
   font-size: 30rpx;
-  font-weight: 600;
 }
 
-/* 购物车滚动区底部给结算条 + TabBar 让位 */
+/* 购物车滚动区：卡片纵向排布 + 底部给结算条与 TabBar 让位 */
 .cart-scroll {
-  padding: 24rpx 24rpx calc(260rpx + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding: 24rpx 24rpx calc(360rpx + env(safe-area-inset-bottom));
 }
 </style>

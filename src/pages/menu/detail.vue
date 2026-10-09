@@ -137,7 +137,7 @@ function addToCart() {
       </view>
     </view>
 
-    <view v-if="!readonly" class="bottombar">
+    <view v-if="!readonly" class="bottombar glass glass--strong">
       <view class="stepper">
         <text class="stepper__btn" @click="changeCount(-1)">−</text>
         <text class="stepper__count">{{ count }}</text>
@@ -152,13 +152,13 @@ function addToCart() {
 
 <style lang="scss" scoped>
 .detail {
-  padding-bottom: 160rpx;
+  padding-bottom: 180rpx;
 }
 
 .hero {
   position: relative;
   height: 420rpx;
-  background: linear-gradient(150deg, #ffc49b, #ff7a45);
+  background: linear-gradient(150deg, $lg-accent-2, $lg-accent);
 }
 
 .hero__img {
@@ -168,7 +168,7 @@ function addToCart() {
 }
 
 .hero__img--ph {
-  background: linear-gradient(150deg, #ffc49b, #ff7a45);
+  background: linear-gradient(150deg, $lg-accent-2, $lg-accent);
 }
 
 .hero__mask {
@@ -186,7 +186,7 @@ function addToCart() {
   align-self: flex-start;
   font-size: 20rpx;
   padding: 4rpx 14rpx;
-  border-radius: 8rpx;
+  border-radius: 999rpx;
   background-color: rgba(255, 255, 255, 0.25);
   color: #fff;
   margin-bottom: 12rpx;
@@ -224,7 +224,7 @@ function addToCart() {
 .spec__value {
   font-size: 28rpx;
   font-weight: 700;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .detail__tags {
@@ -236,9 +236,9 @@ function addToCart() {
 .tag {
   font-size: 22rpx;
   padding: 6rpx 16rpx;
-  border-radius: 8rpx;
-  background-color: $meal-primary-soft;
-  color: $meal-primary;
+  border-radius: 999rpx;
+  background-color: $lg-accent-soft;
+  color: $lg-accent;
   font-weight: 600;
 }
 
@@ -248,7 +248,7 @@ function addToCart() {
   justify-content: space-between;
   font-size: 26rpx;
   padding: 12rpx 0;
-  border-bottom: 1rpx solid $meal-line;
+  border-bottom: 1rpx solid $lg-line;
 }
 
 .ingredient:last-child {
@@ -256,7 +256,7 @@ function addToCart() {
 }
 
 .ingredient__name {
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .step {
@@ -271,7 +271,7 @@ function addToCart() {
   line-height: 36rpx;
   text-align: center;
   border-radius: 50%;
-  background-color: $meal-primary;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
   color: #fff;
   font-size: 20rpx;
   font-weight: 700;
@@ -282,36 +282,37 @@ function addToCart() {
   flex: 1;
   font-size: 26rpx;
   line-height: 1.6;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .tip {
   font-size: 26rpx;
   line-height: 1.6;
-  color: $meal-text;
+  color: $lg-ink;
   margin-bottom: 10rpx;
 }
 
 .remark-input {
   font-size: 26rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .search__ph {
-  color: $meal-text-2;
+  color: $lg-ink-3;
 }
 
+/* 悬浮玻璃结算条：浮在内容之上 */
 .bottombar {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(16rpx + env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
   gap: 24rpx;
-  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
-  background-color: $meal-card;
-  border-top: 1rpx solid $meal-line;
+  padding: 20rpx 24rpx;
+  border-radius: 28rpx;
+  z-index: 8;
 }
 
 .stepper {
@@ -326,22 +327,25 @@ function addToCart() {
   line-height: 56rpx;
   text-align: center;
   border-radius: 50%;
-  border: 1rpx solid $meal-line;
-  color: $meal-text-2;
+  border: 1rpx solid rgba(255, 107, 53, 0.4);
+  color: $lg-accent;
+  background: rgba(255, 255, 255, 0.6);
   font-size: 32rpx;
 }
 
 .stepper__btn--plus {
-  background-color: $meal-primary;
-  border-color: $meal-primary;
   color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 10rpx 22rpx $lg-accent-shadow;
 }
 
 .stepper__count {
   font-size: 30rpx;
-  font-weight: 600;
+  font-weight: 700;
   min-width: 40rpx;
   text-align: center;
+  color: $lg-ink;
 }
 
 .bottombar__btn {
@@ -350,9 +354,10 @@ function addToCart() {
   line-height: 88rpx;
   text-align: center;
   border-radius: 999rpx;
-  background-color: $meal-primary;
   color: #fff;
   font-size: 30rpx;
-  font-weight: 600;
+  font-weight: 700;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 20rpx 44rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 </style>

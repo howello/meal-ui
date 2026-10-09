@@ -334,9 +334,9 @@ async function pickCategory(categoryId: number) {
 </script>
 
 <template>
-  <view class="app-fixed">
+  <view class="app-fixed glass-page">
     <view class="app-fixed__head">
-      <view class="search">
+      <view class="search glass">
         <input
           v-model="keyword"
           class="search__input"
@@ -352,7 +352,7 @@ async function pickCategory(categoryId: number) {
     <!-- 海底捞式主体：左分类栏 + 右整段连续菜品流 -->
     <view class="menu">
       <!-- 左侧竖向滚动分类栏 -->
-      <scroll-view scroll-y class="rail">
+      <scroll-view scroll-y class="rail glass glass--weak">
         <view
           v-for="(g, i) in groups"
           :key="g.cat.categoryId"
@@ -402,7 +402,7 @@ async function pickCategory(categoryId: number) {
             <view
               v-for="dish in g.items"
               :key="dish.dishId"
-              class="dish"
+              class="dish glass"
               @click="openDish(dish)"
             >
               <image v-if="dish.cover" class="dish__cover" :src="dish.cover" mode="aspectFill" />
@@ -446,30 +446,33 @@ async function pickCategory(categoryId: number) {
 </template>
 
 <style lang="scss" scoped>
+/* 搜索框：玻璃胶囊底由 .glass 提供，这里只负责布局 */
 .search {
   display: flex;
   align-items: center;
   gap: 16rpx;
-  background-color: $meal-card;
   border-radius: 999rpx;
-  padding: 16rpx 24rpx;
+  padding: 16rpx 12rpx 16rpx 28rpx;
   margin-bottom: 20rpx;
 }
 
 .search__input {
   flex: 1;
   font-size: 26rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .search__ph {
-  color: $meal-text-2;
+  color: $lg-ink-3;
 }
 
 .search__btn {
   font-size: 26rpx;
-  color: $meal-primary;
-  font-weight: 600;
+  color: $lg-accent;
+  font-weight: 700;
+  padding: 12rpx 28rpx;
+  border-radius: 999rpx;
+  background: $lg-accent-soft;
 }
 
 /* 主体：左右两栏撑满剩余高度 */
@@ -477,33 +480,37 @@ async function pickCategory(categoryId: number) {
   flex: 1;
   min-height: 0;
   display: flex;
+  gap: 16rpx;
   position: relative;
 }
 
-/* 左侧竖向分类栏：独立滚动，宽 148rpx（375pt 屏 ≈ 74px，落在 74–80px 区间） */
+/* 左侧竖向分类栏：玻璃弱面板，独立滚动
+   宽 148rpx（375pt 屏 ≈ 74px）；border-box 保证加内边距后总宽不变 */
 .rail {
+  box-sizing: border-box;
   flex: 0 0 148rpx;
   width: 148rpx;
-  background-color: $meal-primary-soft;
+  border-radius: 28rpx;
   overflow-y: auto;
+  padding: 10rpx 8rpx;
 }
 
 .rail-item {
   position: relative;
-  padding: 24rpx 10rpx;
+  padding: 22rpx 8rpx;
   text-align: center;
   font-size: 26rpx;
-  color: $meal-text-2;
-  border-left: 6rpx solid transparent;
+  color: $lg-ink-2;
+  border-radius: 22rpx;
   transition: all 0.15s;
   line-height: 1.3;
 }
 
 .rail-item--on {
-  background-color: $meal-card;
-  color: $meal-primary;
-  border-left-color: $meal-primary;
-  font-weight: 600;
+  color: #fff;
+  font-weight: 700;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 12rpx 26rpx $lg-accent-shadow;
 }
 
 .rail-item__ic {
@@ -513,34 +520,36 @@ async function pickCategory(categoryId: number) {
   margin-bottom: 6rpx;
 }
 
-/* 右侧整段连续滚动菜品流 */
+/* 右侧整段连续滚动菜品流：透明底，露出环境光，菜品本身为玻璃卡 */
 .menu-dish {
   flex: 1;
   min-width: 0;
-  padding: 0 20rpx;
-  background-color: $meal-card;
+  padding: 0 2rpx;
 }
 
-/* 与固定底部 TabBar（108rpx + 安全区）等高，另留 12rpx 呼吸位。
-   本段会被 TabBar 完全遮住，只用来把最后一道菜顶到 TabBar 上方。 */
+/* 底部为悬浮 TabBar 让位（TabBar 现已改为悬浮胶囊） */
 .menu-tail {
-  height: calc(120rpx + env(safe-area-inset-bottom));
+  height: calc(170rpx + env(safe-area-inset-bottom));
 }
 
 .menu-group {
   margin-bottom: 8rpx;
 }
 
-/* 吸顶分组标题 */
+/* 吸顶分组标题：半透明磨砂，滚动时压住下方菜品仍清晰可读 */
 .sec-tit {
   position: sticky;
   top: 0;
   z-index: 5;
-  background-color: $meal-primary-soft;
-  padding: 14rpx 16rpx;
   display: flex;
   align-items: baseline;
   gap: 12rpx;
+  padding: 14rpx 16rpx;
+  margin: 8rpx 0;
+  border-radius: 18rpx;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
 }
 
 .sec-tit__ic {
@@ -550,21 +559,22 @@ async function pickCategory(categoryId: number) {
 .sec-tit__name {
   font-size: 28rpx;
   font-weight: 700;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .sec-tit__cnt {
   font-size: 22rpx;
-  color: $meal-text-2;
+  color: $lg-ink-3;
   font-weight: 500;
 }
 
-/* 菜品行 */
+/* 菜品卡：玻璃卡，独立成块 */
 .dish {
   display: flex;
   gap: 18rpx;
-  padding: 22rpx 0;
-  border-bottom: 1rpx dashed $meal-line;
+  padding: 20rpx;
+  border-radius: 26rpx;
+  margin-bottom: 16rpx;
   position: relative;
 }
 
@@ -577,8 +587,8 @@ async function pickCategory(categoryId: number) {
 }
 
 .dish__cover--ph {
-  background: linear-gradient(135deg, $meal-primary-2, $meal-primary);
-  color: $meal-primary-fg;
+  background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
+  color: #fff;
   font-size: 22rpx;
   font-weight: 600;
   display: flex;
@@ -589,14 +599,14 @@ async function pickCategory(categoryId: number) {
 .dish__name {
   display: block;
   font-size: 28rpx;
-  font-weight: 600;
-  color: $meal-text;
+  font-weight: 700;
+  color: $lg-ink;
 }
 
 .dish__desc {
   display: block;
   font-size: 22rpx;
-  color: $meal-text-2;
+  color: $lg-ink-3;
   margin: 6rpx 0 10rpx;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -618,10 +628,10 @@ async function pickCategory(categoryId: number) {
 
 .tag {
   font-size: 20rpx;
-  padding: 4rpx 12rpx;
-  border-radius: 8rpx;
-  background-color: $meal-primary-soft;
-  color: $meal-primary;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  color: $lg-accent;
+  background: $lg-accent-soft;
   font-weight: 600;
 }
 
@@ -639,23 +649,24 @@ async function pickCategory(categoryId: number) {
   line-height: 46rpx;
   text-align: center;
   border-radius: 50%;
-  background-color: $meal-card;
-  color: $meal-primary;
-  border: 1rpx solid $meal-primary;
+  color: $lg-accent;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1rpx solid rgba(255, 107, 53, 0.4);
   font-size: 30rpx;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .stepper__btn--plus {
-  background-color: $meal-primary;
-  border-color: $meal-primary;
-  color: $meal-primary-fg;
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 10rpx 22rpx $lg-accent-shadow;
 }
 
 .stepper__num {
   font-size: 28rpx;
-  font-weight: 600;
-  color: $meal-text;
+  font-weight: 700;
+  color: $lg-ink;
   min-width: 32rpx;
   text-align: center;
 }
@@ -668,11 +679,11 @@ async function pickCategory(categoryId: number) {
   width: 104rpx;
   height: 104rpx;
   border-radius: 50%;
-  background: linear-gradient(135deg, $meal-primary, $meal-primary-2);
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10rpx 30rpx $meal-primary-shadow;
+  box-shadow: 0 16rpx 36rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
   z-index: 90;
 }
 
@@ -692,12 +703,12 @@ async function pickCategory(categoryId: number) {
   padding: 0 8rpx;
   border-radius: 999rpx;
   background-color: $meal-danger;
-  color: $meal-primary-fg;
+  color: #fff;
   font-size: 20rpx;
   font-weight: 700;
 }
 
-/* 骨架屏 */
+/* 骨架屏：半透明占位，贴合玻璃风格 */
 .skeleton-list {
   padding-top: 8rpx;
 }
@@ -705,7 +716,10 @@ async function pickCategory(categoryId: number) {
 .skeleton-row {
   display: flex;
   gap: 18rpx;
-  padding: 20rpx 0;
+  padding: 20rpx;
+  border-radius: 26rpx;
+  margin-bottom: 16rpx;
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .skeleton-row__ph {
@@ -732,7 +746,7 @@ async function pickCategory(categoryId: number) {
 }
 
 .shimmer {
-  background: linear-gradient(90deg, $meal-line 25%, $meal-bg 37%, $meal-line 63%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.45) 25%, rgba(255, 255, 255, 0.15) 37%, rgba(255, 255, 255, 0.45) 63%);
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
 }

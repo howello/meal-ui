@@ -175,7 +175,7 @@ function goReview() {
   display: block;
   font-size: 34rpx;
   font-weight: 700;
-  color: $meal-primary;
+  color: $lg-accent;
 }
 
 .status__hint {
@@ -200,20 +200,20 @@ function goReview() {
   width: 100%;
   height: 6rpx;
   border-radius: 4rpx;
-  background-color: $meal-line;
+  background-color: $lg-line;
 }
 
 .timeline__node--done .timeline__bar {
-  background-color: $meal-primary;
+  background: linear-gradient(90deg, $lg-accent, $lg-accent-2);
 }
 
 .timeline__label {
   font-size: 21rpx;
-  color: $meal-text-2;
+  color: $lg-ink-2;
 }
 
 .timeline__node--done .timeline__label {
-  color: $meal-primary;
+  color: $lg-accent;
   font-weight: 600;
 }
 
@@ -222,7 +222,7 @@ function goReview() {
   align-items: center;
   gap: 20rpx;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid $meal-line;
+  border-bottom: 1rpx solid $lg-line;
 }
 
 .item:last-child {
@@ -237,7 +237,7 @@ function goReview() {
 }
 
 .item__cover--ph {
-  background: linear-gradient(135deg, #ffc49b, #ff7a45);
+  background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
   font-size: 20rpx;
   display: flex;
@@ -256,7 +256,7 @@ function goReview() {
 .item__name {
   font-size: 26rpx;
   font-weight: 600;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .info {
@@ -265,7 +265,7 @@ function goReview() {
 
 .value {
   font-size: 26rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .actions {
@@ -280,18 +280,20 @@ function goReview() {
   line-height: 88rpx;
   text-align: center;
   border-radius: 999rpx;
-  background-color: $meal-primary;
   color: #fff;
   font-size: 28rpx;
-  font-weight: 600;
+  font-weight: 700;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 20rpx 44rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
-/* 取消订单：白底 + 危险色描边，一眼能看出是按钮 */
+/* 取消订单：半透明玻璃底 + 危险色描边，一眼能看出是按钮 */
 .actions__btn--cancel {
   box-sizing: border-box;
-  background-color: $meal-card;
+  background: rgba(255, 255, 255, 0.6);
   border: 2rpx solid $meal-danger;
   color: $meal-danger;
+  box-shadow: none;
 }
 
 .actions__btn--disabled {

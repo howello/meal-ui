@@ -107,7 +107,7 @@ async function submit() {
 <style lang="scss" scoped>
 .value {
   font-size: 26rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .item {
@@ -115,7 +115,7 @@ async function submit() {
   align-items: center;
   justify-content: space-between;
   padding: 12rpx 0;
-  border-bottom: 1rpx solid $meal-line;
+  border-bottom: 1rpx solid $lg-line;
 }
 
 .item:last-of-type {
@@ -130,30 +130,30 @@ async function submit() {
 
 .item__name {
   font-size: 26rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .hr {
   height: 1rpx;
-  background-color: $meal-line;
+  background-color: $lg-line;
   margin: 16rpx 0;
 }
 
 .remark-input {
   font-size: 26rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .ph {
-  color: $meal-text-2;
+  color: $lg-ink-3;
 }
 
 .note {
   margin-top: 24rpx;
   padding: 20rpx 24rpx;
   border-radius: 20rpx;
-  background-color: $meal-primary-soft;
-  color: $meal-primary;
+  background-color: $lg-accent-soft;
+  color: $lg-accent;
   font-size: 24rpx;
   line-height: 1.5;
 }
@@ -164,13 +164,14 @@ async function submit() {
   line-height: 96rpx;
   text-align: center;
   border-radius: 999rpx;
-  background-color: $meal-primary;
   color: #fff;
   font-size: 32rpx;
-  font-weight: 600;
+  font-weight: 700;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 24rpx 52rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .submit--disabled {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 </style>

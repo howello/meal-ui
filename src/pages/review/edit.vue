@@ -176,7 +176,7 @@ async function submit() {
 .head__no {
   font-size: 26rpx;
   font-weight: 600;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .head__items {
@@ -188,7 +188,7 @@ async function submit() {
   align-items: center;
   gap: 20rpx;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid $meal-line;
+  border-bottom: 1rpx solid $lg-line;
 }
 
 .item:last-child {
@@ -203,7 +203,7 @@ async function submit() {
 }
 
 .item__cover--ph {
-  background: linear-gradient(135deg, #ffc49b, #ff7a45);
+  background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
   font-size: 20rpx;
   display: flex;
@@ -223,7 +223,7 @@ async function submit() {
 .item__name {
   font-size: 26rpx;
   font-weight: 600;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .score {
@@ -241,7 +241,7 @@ async function submit() {
 
 .stars__item {
   font-size: 56rpx;
-  color: $meal-line;
+  color: $lg-line;
 }
 
 .stars__item--on {
@@ -250,7 +250,7 @@ async function submit() {
 
 .score__text {
   font-size: 26rpx;
-  color: $meal-primary;
+  color: $lg-accent;
   font-weight: 600;
 }
 
@@ -258,7 +258,7 @@ async function submit() {
   width: 100%;
   min-height: 180rpx;
   font-size: 26rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .content__count {
@@ -267,7 +267,7 @@ async function submit() {
 }
 
 .ph {
-  color: $meal-text-2;
+  color: $lg-ink-3;
 }
 
 .upl {
@@ -288,8 +288,8 @@ async function submit() {
 }
 
 .upl__box--add {
-  border: 2rpx dashed $meal-line;
-  color: $meal-text-2;
+  border: 2rpx dashed $lg-line;
+  color: $lg-ink-3;
   font-size: 44rpx;
   display: flex;
   align-items: center;
@@ -298,7 +298,7 @@ async function submit() {
 
 .menu__text {
   font-size: 28rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .submit {
@@ -307,13 +307,14 @@ async function submit() {
   line-height: 96rpx;
   text-align: center;
   border-radius: 999rpx;
-  background-color: $meal-primary;
   color: #fff;
   font-size: 32rpx;
-  font-weight: 600;
+  font-weight: 700;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 24rpx 52rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .submit--disabled {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 </style>

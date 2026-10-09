@@ -10,13 +10,16 @@
       "path": "pages/login/index",
       "style": {
         "navigationBarTitleText": "登录",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "backgroundColor": "#EEF1FF"
       }
     },
     {
       "path": "pages/menu/index",
       "style": {
-        "navigationBarTitleText": "今天吃什么"
+        "navigationBarTitleText": "今天吃什么",
+        "navigationBarBackgroundColor": "#F1F4FF",
+        "backgroundColor": "#EEF1FF"
       }
     },
     {
@@ -28,27 +31,33 @@
     {
       "path": "pages/cart/index",
       "style": {
-        "navigationBarTitleText": "购物车"
+        "navigationBarTitleText": "购物车",
+        "navigationBarBackgroundColor": "#F1F4FF",
+        "backgroundColor": "#EEF1FF"
       }
     },
     {
       "path": "pages/mine/index",
       "style": {
-        "navigationBarTitleText": "个人中心"
+        "navigationBarTitleText": "个人中心",
+        "navigationBarBackgroundColor": "#F1F4FF",
+        "backgroundColor": "#EEF1FF"
       }
     },
     {
       "path": "pages/kitchen/waiting",
       "style": {
         "navigationBarTitleText": "待接单",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "backgroundColor": "#EEF1FF"
       }
     },
     {
       "path": "pages/kitchen/cooking",
       "style": {
         "navigationBarTitleText": "制作中",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "backgroundColor": "#EEF1FF"
       }
     },
     {
@@ -97,7 +106,7 @@
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "家里吃什么",
-    "navigationBarBackgroundColor": "#FFFFFF",
-    "backgroundColor": "#F5F3F0"
+    "navigationBarBackgroundColor": "#F1F4FF",
+    "backgroundColor": "#EEF1FF"
   }
 }

@@ -75,7 +75,7 @@ function hint(proposal: Proposal): string {
 .name {
   font-size: 30rpx;
   font-weight: 700;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .meta {
@@ -86,15 +86,15 @@ function hint(proposal: Proposal): string {
 .note {
   padding: 16rpx 20rpx;
   border-radius: 16rpx;
-  background-color: $meal-primary-soft;
-  color: $meal-primary;
+  background-color: $lg-accent-soft;
+  color: $lg-accent;
   font-size: 24rpx;
   line-height: 1.5;
 }
 
 .note--gray {
-  background-color: $meal-line;
-  color: $meal-text-2;
+  background-color: $lg-line;
+  color: $lg-ink-2;
 }
 
 .note--err {
@@ -105,7 +105,7 @@ function hint(proposal: Proposal): string {
 .tag {
   font-size: 22rpx;
   padding: 6rpx 16rpx;
-  border-radius: 8rpx;
+  border-radius: 999rpx;
   font-weight: 600;
 }
 

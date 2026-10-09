@@ -241,18 +241,20 @@ async function submit() {
 .note {
   padding: 20rpx 24rpx;
   border-radius: 20rpx;
-  background-color: $meal-primary-soft;
-  color: $meal-primary;
+  background-color: $lg-accent-soft;
+  color: $lg-accent;
   font-size: 24rpx;
   line-height: 1.5;
   margin-bottom: 24rpx;
 }
 
+/* 输入行：玻璃底 + 亮描边 */
 .field {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: $meal-card;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1rpx solid $lg-border;
   border-radius: 20rpx;
   padding: 28rpx 24rpx;
   margin-bottom: 16rpx;
@@ -260,19 +262,19 @@ async function submit() {
 
 .field__label {
   font-size: 28rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .field__input {
   flex: 1;
   text-align: right;
   font-size: 28rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .field__value {
   font-size: 28rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .field--col {
@@ -291,25 +293,28 @@ async function submit() {
   font-size: 26rpx;
   padding: 10rpx 24rpx;
   border-radius: 999rpx;
-  background-color: $meal-primary-soft;
-  color: $meal-text-2;
+  background-color: $lg-accent-soft;
+  color: $lg-ink-2;
   border: 1rpx solid transparent;
 }
 
 .cat--on {
-  background-color: $meal-primary;
-  color: $meal-primary-fg;
+  color: #fff;
+  font-weight: 700;
+  border-color: transparent;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 10rpx 22rpx $lg-accent-shadow;
 }
 
 .ph {
-  color: $meal-text-2;
+  color: $lg-ink-3;
 }
 
 .textarea {
   width: 100%;
   min-height: 150rpx;
   font-size: 26rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .upl {
@@ -330,8 +335,8 @@ async function submit() {
 }
 
 .upl__box--add {
-  border: 2rpx dashed $meal-line;
-  color: $meal-text-2;
+  border: 2rpx dashed $lg-line;
+  color: $lg-ink-3;
   font-size: 44rpx;
   display: flex;
   align-items: center;
@@ -349,8 +354,8 @@ async function submit() {
   flex-shrink: 0;
   padding: 16rpx 32rpx;
   border-radius: 999rpx;
-  background-color: $meal-primary-soft;
-  color: $meal-primary;
+  background-color: $lg-accent-soft;
+  color: $lg-accent;
   font-size: 26rpx;
   font-weight: 600;
 }
@@ -362,7 +367,7 @@ async function submit() {
 .ai-hint {
   flex: 1;
   font-size: 22rpx;
-  color: $meal-text-2;
+  color: $lg-ink-3;
 }
 
 .mini-field {
@@ -370,19 +375,19 @@ async function submit() {
   align-items: center;
   justify-content: space-between;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid $meal-line;
+  border-bottom: 1rpx solid $lg-line;
 }
 
 .mini-field__label {
   font-size: 26rpx;
-  color: $meal-text-2;
+  color: $lg-ink-2;
 }
 
 .mini-field__input {
   flex: 1;
   text-align: right;
   font-size: 26rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .submit {
@@ -391,13 +396,14 @@ async function submit() {
   line-height: 96rpx;
   text-align: center;
   border-radius: 999rpx;
-  background-color: $meal-primary;
   color: #fff;
   font-size: 32rpx;
-  font-weight: 600;
+  font-weight: 700;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 24rpx 52rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .submit--disabled {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 </style>

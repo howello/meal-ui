@@ -2,6 +2,7 @@
 import { onLoad } from "@dcloudio/uni-app";
 import { reactive, ref } from "vue";
 import { getCaptcha, login, type CaptchaInfo } from "@/api/auth";
+import GlassButton from "@/components/GlassButton.vue";
 import { useUserStore } from "@/store/user";
 import { stopOrderNotifier } from "@/utils/notify";
 
@@ -197,22 +198,22 @@ function goNext() {
 </script>
 
 <template>
-  <view class="login">
-    <view class="login__logo">
+  <view class="login glass-page">
+    <view class="login__logo glass glass--strong">
       <image class="login__logo-img" src="/static/logo.png" mode="aspectFit" />
     </view>
     <text class="login__title">家里吃什么</text>
     <text class="login__sub">登录后开始点餐</text>
 
-    <view class="field">
+    <view class="field glass">
       <text class="field__label">账号</text>
       <input v-model="form.username" class="field__input" placeholder="手机号 / 用户名" placeholder-class="field__ph" />
     </view>
-    <view class="field">
+    <view class="field glass">
       <text class="field__label">密码</text>
       <input v-model="form.password" class="field__input" password placeholder="请输入密码" placeholder-class="field__ph" />
     </view>
-    <view v-if="captcha?.captchaEnabled" class="field field--captcha">
+    <view v-if="captcha?.captchaEnabled" class="field field--captcha glass">
       <input v-model="form.code" class="field__input" placeholder="验证码" placeholder-class="field__ph" />
       <image v-if="captchaImage()" class="field__captcha" :src="captchaImage()" @click="loadCaptcha" />
       <text v-else class="field__captcha-text" @click="loadCaptcha">刷新</text>
@@ -220,9 +221,9 @@ function goNext() {
 
     <view id="meal-turnstile" class="turnstile"></view>
 
-    <view class="login__btn" :class="{ 'login__btn--disabled': submitting }" @click="submit">
+    <GlassButton class="login__btn" :disabled="submitting" @click="submit">
       {{ submitting ? "登录中…" : "登 录" }}
-    </view>
+    </GlassButton>
 
     <view class="login__row">
       <view class="login__remember" @click="rememberPwd = !rememberPwd">
@@ -240,7 +241,8 @@ function goNext() {
 .login {
   /* 全屏固定：固定定位铺满视口，整页不可上下滚动。
      不用 height: 100vh —— view 默认 content-box，100vh 再加上下 padding 会超出视口，
-     手机浏览器的 100vh 还包含地址栏。 */
+     手机浏览器的 100vh 还包含地址栏。
+     背景由 .glass-page 提供（浅蓝紫环境光渐变）。 */
   position: fixed;
   top: 0;
   right: 0;
@@ -250,7 +252,6 @@ function goNext() {
   overflow: hidden;
   /* 本页是自定义导航栏（navigationStyle: custom），App 端要给状态栏留出高度 */
   padding: calc(160rpx + var(--status-bar-height)) 52rpx 60rpx;
-  background-color: $meal-bg;
   display: flex;
   flex-direction: column;
 }
@@ -260,9 +261,8 @@ function goNext() {
   height: 132rpx;
   border-radius: 40rpx;
   /* logo 自带白色底，这里做成圆角白色磁贴（App 图标观感），
-     不再叠橙色渐变，避免蓝底 logo 与橙色底撞色 */
+     外面再套一层玻璃描边与柔和阴影，与整体玻璃语言统一 */
   overflow: hidden;
-  box-shadow: 0 8rpx 24rpx rgba(30, 33, 38, 0.12);
   margin-bottom: 44rpx;
 }
 
@@ -275,21 +275,20 @@ function goNext() {
 .login__title {
   font-size: 44rpx;
   font-weight: 700;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .login__sub {
   font-size: 26rpx;
-  color: $meal-text-2;
+  color: $lg-ink-2;
   margin: 10rpx 0 60rpx;
 }
 
+/* 输入框：玻璃底由 .glass 提供，这里只负责布局 */
 .field {
   display: flex;
   align-items: center;
-  background-color: $meal-card;
-  border: 1rpx solid $meal-line;
-  border-radius: 20rpx;
+  border-radius: 32rpx;
   padding: 26rpx 24rpx;
   margin-bottom: 20rpx;
 }
@@ -301,17 +300,17 @@ function goNext() {
 .field__label {
   width: 96rpx;
   font-size: 28rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .field__input {
   flex: 1;
   font-size: 28rpx;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .field__ph {
-  color: $meal-text-2;
+  color: $lg-ink-3;
 }
 
 .field__captcha {
@@ -322,7 +321,7 @@ function goNext() {
 
 .field__captcha-text {
   font-size: 26rpx;
-  color: $meal-primary;
+  color: $lg-accent;
   padding: 0 16rpx;
 }
 
@@ -330,20 +329,12 @@ function goNext() {
   margin-bottom: 20rpx;
 }
 
-.login__btn {
+/* 主按钮高度由本页覆盖，底色/圆角/阴影来自 GlassButton。
+   用后代选择器提高权重，避免与组件自身 .gbtn 同权重时被覆盖 */
+.login .login__btn {
   margin-top: 24rpx;
   height: 96rpx;
-  line-height: 96rpx;
-  text-align: center;
-  border-radius: 999rpx;
-  background-color: $meal-primary;
-  color: #fff;
   font-size: 32rpx;
-  font-weight: 600;
-}
-
-.login__btn--disabled {
-  opacity: 0.6;
 }
 
 .login__row {
@@ -365,14 +356,14 @@ function goNext() {
   line-height: 30rpx;
   text-align: center;
   border-radius: 8rpx;
-  border: 1rpx solid $meal-line;
+  border: 1rpx solid $lg-border;
   color: transparent;
   font-size: 20rpx;
 }
 
 .login__checkbox--on {
-  background-color: $meal-primary;
-  border-color: $meal-primary;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  border-color: transparent;
   color: #fff;
 }
 </style>

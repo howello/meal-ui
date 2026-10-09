@@ -73,7 +73,7 @@ function imageList(review: Review): string[] {
   display: block;
   font-size: 28rpx;
   font-weight: 600;
-  color: $meal-text;
+  color: $lg-ink;
   margin-bottom: 8rpx;
 }
 
@@ -88,7 +88,7 @@ function imageList(review: Review): string[] {
   display: block;
   font-size: 26rpx;
   line-height: 1.6;
-  color: $meal-text;
+  color: $lg-ink;
 }
 
 .images {

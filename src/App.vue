@@ -23,8 +23,9 @@ body {
 }
 
 page {
-  background-color: $meal-bg;
-  color: $meal-text;
+  /* 全站环境光背景：浅蓝紫渐变 + 柔和光斑，各页玻璃浮于其上 */
+  @include lg-ambient-bg;
+  color: $lg-ink;
   font-size: 28rpx;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
 }
@@ -74,10 +75,12 @@ page {
 }
 
 .card {
-  background-color: $meal-card;
   border-radius: 24rpx;
   padding: 24rpx;
-  box-shadow: 0 6rpx 20rpx rgba(30, 33, 38, 0.06);
+  border: 1px solid $lg-border;
+  box-shadow: $lg-shadow, $lg-edge;
+  /* 降级底：不支持 backdrop-filter 时仍保证可读 */
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .card + .card {
@@ -91,12 +94,12 @@ page {
 }
 
 .muted {
-  color: $meal-text-2;
+  color: $lg-ink-2;
   font-size: 24rpx;
 }
 
 .tiny {
-  color: $meal-text-2;
+  color: $lg-ink-3;
   font-size: 22rpx;
 }
 
@@ -109,7 +112,62 @@ page {
 .empty {
   padding: 120rpx 0;
   text-align: center;
-  color: $meal-text-2;
+  color: $lg-ink-2;
   font-size: 26rpx;
+}
+
+/* ============================================================
+   Liquid Glass 全局样式（核心页启用，其余页逐步铺开）
+   超透底 + 亮描边 + 背景模糊/饱和 + 柔和内外阴影
+   ============================================================ */
+
+/* 页面环境光背景：与 page 一致（自定义导航页/固定视口页在根容器上再铺一层） */
+.glass-page {
+  @include lg-ambient-bg;
+}
+
+/* 玻璃基元：默认给半透明白底作降级（小程序等不支持 backdrop-filter 时仍可读），
+   支持背景模糊时再切成真玻璃 */
+.glass {
+  border: 1px solid $lg-border;
+  box-shadow: $lg-shadow, $lg-edge;
+  background: rgba(255, 255, 255, 0.72);
+}
+.glass--strong {
+  background: rgba(255, 255, 255, 0.82);
+}
+.glass--weak {
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: $lg-shadow-sm, $lg-edge;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: $lg-glass;
+    backdrop-filter: blur($lg-blur) saturate($lg-sat);
+    -webkit-backdrop-filter: blur($lg-blur) saturate($lg-sat);
+  }
+  .glass--strong {
+    background: $lg-glass-strong;
+  }
+  .glass--weak {
+    background: $lg-glass-weak;
+  }
+  /* 全局 .card 一并玻璃化，未单独改造的页面卡片自动生效 */
+  .card {
+    background: $lg-glass;
+    backdrop-filter: blur($lg-blur) saturate($lg-sat);
+    -webkit-backdrop-filter: blur($lg-blur) saturate($lg-sat);
+  }
+}
+
+/* 强调标签（分类标签 / 角色标签） */
+.glass-chip {
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  color: $lg-accent;
+  background: $lg-accent-soft;
+  border: 1px solid rgba(255, 107, 53, 0.22);
 }
 </style>
