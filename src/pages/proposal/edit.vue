@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import { listCategory } from "@/api/dish";
 import { submitProposal } from "@/api/proposal";
 import { uploadImage } from "@/api/upload";
@@ -8,7 +8,7 @@ import type { Category } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const categories = ref<Category[]>([]);
-const categoryIndex = ref(-1);
+const selectedCategoryIds = ref<number[]>([]);
 const name = ref("");
 const description = ref("");
 const reason = ref("");
@@ -25,14 +25,18 @@ onLoad(async () => {
   }
 });
 
-const categoryNames = computed(() => categories.value.map((item) => item.name));
+/** 分类可多选：点一下切换选中态 */
+function toggleCategory(categoryId: number) {
+  const idx = selectedCategoryIds.value.indexOf(categoryId);
+  if (idx >= 0) {
+    selectedCategoryIds.value.splice(idx, 1);
+  } else {
+    selectedCategoryIds.value.push(categoryId);
+  }
+}
 
-const selectedCategoryName = computed(() =>
-  categoryIndex.value >= 0 ? categoryNames.value[categoryIndex.value] : "请选择",
-);
-
-function onCategoryChange(event: { detail: { value: number | string } }) {
-  categoryIndex.value = Number(event.detail.value);
+function isSelected(categoryId: number): boolean {
+  return selectedCategoryIds.value.includes(categoryId);
 }
 
 function pickImage() {
@@ -64,7 +68,7 @@ async function submit() {
   try {
     await submitProposal({
       name: name.value.trim(),
-      categoryId: categoryIndex.value >= 0 ? categories.value[categoryIndex.value].categoryId : undefined,
+      categoryIds: selectedCategoryIds.value.length ? selectedCategoryIds.value : undefined,
       description: description.value,
       reason: reason.value,
       image: image.value || undefined,
@@ -90,12 +94,18 @@ async function submit() {
       <input v-model="name" class="field__input" placeholder="如：水煮牛肉" placeholder-class="ph" />
     </view>
 
-    <picker mode="selector" :range="categoryNames" @change="onCategoryChange">
-      <view class="field">
-        <text class="field__label">建议分类</text>
-        <text class="field__value">{{ selectedCategoryName }}</text>
+    <view class="field field--col">
+      <text class="field__label">建议分类（可多选）</text>
+      <view class="cats">
+        <text
+          v-for="cat in categories"
+          :key="cat.categoryId"
+          class="cat"
+          :class="{ 'cat--on': isSelected(cat.categoryId) }"
+          @click="toggleCategory(cat.categoryId)"
+        >{{ cat.name }}</text>
       </view>
-    </picker>
+    </view>
 
     <view class="card">
       <text class="section-title">菜品介绍</text>
@@ -171,6 +181,32 @@ async function submit() {
 .field__value {
   font-size: 28rpx;
   color: $meal-text;
+}
+
+.field--col {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.cat {
+  font-size: 26rpx;
+  padding: 10rpx 24rpx;
+  border-radius: 999rpx;
+  background-color: $meal-primary-soft;
+  color: $meal-text-2;
+  border: 1rpx solid transparent;
+}
+
+.cat--on {
+  background-color: $meal-primary;
+  color: $meal-primary-fg;
 }
 
 .ph {

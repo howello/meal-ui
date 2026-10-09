@@ -80,7 +80,7 @@ function addToCart() {
       <image v-if="dish.cover" class="hero__img" :src="dish.cover" mode="aspectFill" />
       <view v-else class="hero__img hero__img--ph"></view>
       <view class="hero__mask">
-        <text v-if="dish.categoryName" class="hero__tag">{{ dish.categoryName }}</text>
+        <text v-if="dish.categoryNames" class="hero__tag">{{ dish.categoryNames }}</text>
         <text class="hero__name">{{ dish.name }}</text>
         <text class="hero__desc">{{ dish.description || "" }}</text>
       </view>

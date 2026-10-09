@@ -18,8 +18,10 @@ export interface Ingredient {
 export interface Dish {
   dishId: number;
   deptId?: number;
-  categoryId?: number;
-  categoryName?: string;
+  /** 关联分类ID列表（一道菜可挂多个分类） */
+  categoryIds?: number[];
+  /** 分类名称（顿号拼接，列表附带） */
+  categoryNames?: string;
   name: string;
   cover?: string;
   description?: string;
@@ -109,8 +111,10 @@ export interface Review {
 export interface Proposal {
   proposalId?: number;
   name: string;
-  categoryId?: number;
-  categoryName?: string;
+  /** 期望分类ID列表 */
+  categoryIds?: number[];
+  /** 期望分类名称（顿号拼接） */
+  categoryNames?: string;
   description?: string;
   image?: string;
   reason?: string;

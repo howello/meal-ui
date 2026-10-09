@@ -121,21 +121,23 @@ function categoryIcon(cat: Category, index: number): string {
   return icon || DEFAULT_CATEGORY_ICONS[index % DEFAULT_CATEGORY_ICONS.length];
 }
 
-/* 每个分类的分组：categories 顺序为基准，菜品按 categoryId 归组
+/* 每个分类的分组：categories 顺序为基准，菜品按 categoryIds 归组
    （left 分类栏与右侧分组一一对应，保证左右联动索引一致）
+   一道菜可挂多个分类，会同时出现在多个分组里——这是预期行为。
    备注：categoryId 可能被后端序列化为数字或字符串，统一字符串化后比较，避免类型不匹配把整组过滤成空 */
 const groups = computed(() =>
   categories.value.map((cat, index) => ({
     cat,
     icon: categoryIcon(cat, index),
     items: dishes.value.filter((d) => {
-      // 优先按 categoryId 归组；后端可能把 bigint 序列化成字符串，统一字符串化比较
-      if (String(d.categoryId) === String(cat.categoryId)) {
+      // 优先按 categoryIds 归组；后端可能把 bigint 序列化成字符串，统一字符串化比较
+      const ids = (d.categoryIds || []).map((id) => String(id));
+      if (ids.includes(String(cat.categoryId))) {
         return true;
       }
-      // 退而按菜名/冗余 categoryName 兜底，避免 categoryId 缺失时整组被过滤成空
-      const dName = (d.categoryName || "").trim();
-      return !!dName && dName === (cat.name || "").trim();
+      // 退而按冗余 categoryNames（顿号拼接）兜底，避免 categoryIds 缺失时整组被过滤成空
+      const names = (d.categoryNames || "").split("、").map((name) => name.trim());
+      return names.includes((cat.name || "").trim());
     }),
   })),
 );

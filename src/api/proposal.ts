@@ -3,7 +3,8 @@ import { requestPage, requestVoid } from "@/utils/request";
 
 export interface SubmitProposalBody {
   name: string;
-  categoryId?: number;
+  /** 期望分类ID列表（可多选） */
+  categoryIds?: number[];
   description?: string;
   image?: string;
   reason?: string;

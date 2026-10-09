@@ -59,7 +59,7 @@ function hint(proposal: Proposal): string {
       </view>
       <text class="tiny meta">
         提交于 {{ proposal.createTime }}
-        <template v-if="proposal.categoryName"> · 建议分类 {{ proposal.categoryName }}</template>
+        <template v-if="proposal.categoryNames"> · 建议分类 {{ proposal.categoryNames }}</template>
       </text>
       <view class="note" :class="{ 'note--err': proposal.status === '2', 'note--gray': proposal.status === '1' }">
         <template v-if="proposal.auditRemark">审核意见：{{ proposal.auditRemark }}</template>
