@@ -137,7 +137,10 @@ uni-page-body {
   background: transparent !important;
 }
 
-uni-page-head {
+/* 可见的导航栏是 uni-page-head 内部那个 div：class 与元素同名（.uni-page-head），
+   固定定位、高 44px，uni-app 还把导航栏背景色以 inline style 写在它身上。
+   所以玻璃必须加在 .uni-page-head 上，并用 !important 覆盖它的 inline 背景色。 */
+.uni-page-head {
   color: $lg-ink !important;
   background: rgba(255, 255, 255, 0.45) !important;
   backdrop-filter: blur($lg-blur) saturate($lg-sat);
@@ -145,7 +148,7 @@ uni-page-head {
   border-bottom: 1px solid $lg-border;
 }
 
-uni-page-head .uni-page-head__title {
+.uni-page-head .uni-page-head__title {
   color: $lg-ink !important;
 }
 /* #endif */
