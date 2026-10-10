@@ -34,7 +34,7 @@ withDefaults(
   box-shadow: $lg-shadow, $lg-edge;
   border-radius: 24rpx;
   /* 降级底：不支持 backdrop-filter 时仍保证可读 */
-  background: rgba(255, 255, 255, 0.72);
+  background: $lg-fill;
 }
 
 .glass-card--pad {
@@ -42,11 +42,11 @@ withDefaults(
 }
 
 .glass-card--strong {
-  background: rgba(255, 255, 255, 0.82);
+  background: $lg-fill-4;
 }
 
 .glass-card--weak {
-  background: rgba(255, 255, 255, 0.6);
+  background: $lg-fill-2;
   box-shadow: $lg-shadow-sm, $lg-edge;
 }
 

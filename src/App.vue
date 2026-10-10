@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { onLaunch } from "@dcloudio/uni-app";
 import { useCartStore } from "@/store/cart";
+import { useThemeStore } from "@/store/theme";
 import { useUserStore } from "@/store/user";
 import { useOrderNotifierAppLifecycle } from "@/utils/notify";
 
 useOrderNotifierAppLifecycle();
 
 onLaunch(() => {
+  useThemeStore().init();
   useUserStore().restore();
   useCartStore().restore();
 });
@@ -23,11 +25,26 @@ body {
 }
 
 page {
-  /* 全站环境光背景：浅蓝紫渐变 + 柔和光斑，各页玻璃浮于其上 */
+  /* 浅色主题令牌（深色由 .theme-dark 覆盖） + 全站环境光背景：各页玻璃浮于其上 */
+  @include lg-theme-light;
   @include lg-ambient-bg;
   color: $lg-ink;
   font-size: 28rpx;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* 深色主题：挂在页面根节点上（各页 <view :class="themeRootClass">），
+   覆盖令牌并铺深色环境光背景；非固定根再撑满整屏，避免底部露出浅色 page 底。 */
+.theme-dark {
+  @include lg-theme-dark;
+  @include lg-ambient-bg-dark;
+}
+/* 非固定布局的页面根（page-body / login / 多根页包装）在深色下撑满整屏，
+   避免底部露出浅色 page 底。.app-fixed 已是固定铺满，不加。 */
+.page-body.theme-dark,
+.login.theme-dark,
+.theme-page.theme-dark {
+  min-height: 100vh;
 }
 
 /* 固定视口布局：根容器固定定位，正好铺满 uni 的内容区且整体不滚动，
@@ -90,7 +107,7 @@ page {
   border: 1px solid $lg-border;
   box-shadow: $lg-shadow, $lg-edge;
   /* 降级底：不支持 backdrop-filter 时仍保证可读 */
-  background: rgba(255, 255, 255, 0.72);
+  background: $lg-fill;
 }
 
 .card + .card {
@@ -140,6 +157,7 @@ page {
    再把 uni-page-body 置透明，避免导航栏下沿出现两层渐变的接缝。 */
 /* #ifdef H5 */
 uni-page {
+  @include lg-theme-light;
   @include lg-ambient-bg;
 }
 
@@ -152,7 +170,7 @@ uni-page-body {
    所以玻璃必须加在 .uni-page-head 上，并用 !important 覆盖它的 inline 背景色。 */
 .uni-page-head {
   color: $lg-ink !important;
-  background: rgba(255, 255, 255, 0.45) !important;
+  background: $lg-fill-bar !important;
   backdrop-filter: blur($lg-blur) saturate($lg-sat);
   -webkit-backdrop-filter: blur($lg-blur) saturate($lg-sat);
   border-bottom: 1px solid $lg-border;
@@ -168,13 +186,13 @@ uni-page-body {
 .glass {
   border: 1px solid $lg-border;
   box-shadow: $lg-shadow, $lg-edge;
-  background: rgba(255, 255, 255, 0.72);
+  background: $lg-fill;
 }
 .glass--strong {
-  background: rgba(255, 255, 255, 0.82);
+  background: $lg-fill-4;
 }
 .glass--weak {
-  background: rgba(255, 255, 255, 0.6);
+  background: $lg-fill-2;
   box-shadow: $lg-shadow-sm, $lg-edge;
 }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -205,6 +223,6 @@ uni-page-body {
   border-radius: 999rpx;
   color: $lg-accent;
   background: $lg-accent-soft;
-  border: 1px solid rgba(255, 107, 53, 0.22);
+  border: 1px solid $lg-accent-border;
 }
 </style>

@@ -55,7 +55,7 @@ function onClick() {
 
 .gbtn--ghost {
   color: $lg-ink-2;
-  background: rgba(255, 255, 255, 0.6);
+  background: $lg-fill-2;
   border: 1px solid $lg-border;
 }
 

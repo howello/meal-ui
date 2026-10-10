@@ -86,7 +86,7 @@ function doCancel(order: Order) {
 </script>
 
 <template>
-  <view class="page-body">
+  <view class="page-body" :class="themeRootClass">
     <GlassNavBar title="我的订单" />
 
     <view class="filters">
@@ -140,7 +140,7 @@ function doCancel(order: Order) {
     <view v-if="!orders.length" class="empty">{{ loading ? "加载中…" : "还没有订单" }}</view>
   </view>
 
-  <AppDialog />
+  <AppDialog :class="themeRootClass" />
 </template>
 
 <style lang="scss" scoped>
@@ -154,7 +154,7 @@ function doCancel(order: Order) {
 .chip {
   padding: 10rpx 28rpx;
   border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.6);
+  background: $lg-fill-2;
   border: 1rpx solid $lg-border;
   color: $lg-ink-2;
   font-size: 24rpx;
@@ -219,7 +219,7 @@ function doCancel(order: Order) {
 
 /* 取消订单：玻璃底 + 危险色描边，和订单详情页一致 */
 .btn--cancel {
-  background: rgba(255, 255, 255, 0.6);
+  background: $lg-fill-2;
   border: 2rpx solid $meal-danger;
   color: $meal-danger;
   box-shadow: none;
@@ -233,7 +233,7 @@ function doCancel(order: Order) {
 }
 
 .tag--warn {
-  background-color: #fff4e5;
+  background-color: $lg-warn-soft;
   color: $meal-warning;
 }
 
@@ -243,7 +243,7 @@ function doCancel(order: Order) {
 }
 
 .tag--ok {
-  background-color: #e7f8f0;
+  background-color: $lg-ok-soft;
   color: $meal-success;
 }
 

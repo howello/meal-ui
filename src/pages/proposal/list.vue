@@ -52,7 +52,7 @@ function hint(proposal: Proposal): string {
 </script>
 
 <template>
-  <view class="page-body">
+  <view class="page-body" :class="themeRootClass">
     <GlassNavBar title="我的提案" />
 
     <view v-for="proposal in proposals" :key="proposal.proposalId" class="card">
@@ -101,8 +101,8 @@ function hint(proposal: Proposal): string {
 }
 
 .note--err {
-  background-color: #fdecec;
-  color: #dc2626;
+  background-color: $lg-danger-soft;
+  color: $lg-danger;
 }
 
 .tag {
@@ -113,17 +113,17 @@ function hint(proposal: Proposal): string {
 }
 
 .tag--warn {
-  background-color: #fff4e5;
+  background-color: $lg-warn-soft;
   color: $meal-warning;
 }
 
 .tag--ok {
-  background-color: #e7f8f0;
+  background-color: $lg-ok-soft;
   color: $meal-success;
 }
 
 .tag--err {
-  background-color: #fdecec;
-  color: #dc2626;
+  background-color: $lg-danger-soft;
+  color: $lg-danger;
 }
 </style>

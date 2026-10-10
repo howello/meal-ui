@@ -76,81 +76,83 @@ function addToCart() {
 </script>
 
 <template>
-  <GlassNavBar title="菜品详情" />
+  <view class="theme-page" :class="themeRootClass">
+    <GlassNavBar title="菜品详情" />
 
-  <view v-if="dish" class="detail">
-    <view class="hero">
-      <image v-if="dish.cover" class="hero__img" :src="dish.cover" mode="aspectFill" />
-      <view v-else class="hero__img hero__img--ph"></view>
-      <view class="hero__mask">
-        <text v-if="dish.categoryNames" class="hero__tag">{{ dish.categoryNames }}</text>
-        <text class="hero__name">{{ dish.name }}</text>
-        <text class="hero__desc">{{ dish.description || "" }}</text>
+    <view v-if="dish" class="detail">
+      <view class="hero">
+        <image v-if="dish.cover" class="hero__img" :src="dish.cover" mode="aspectFill" />
+        <view v-else class="hero__img hero__img--ph"></view>
+        <view class="hero__mask">
+          <text v-if="dish.categoryNames" class="hero__tag">{{ dish.categoryNames }}</text>
+          <text class="hero__name">{{ dish.name }}</text>
+          <text class="hero__desc">{{ dish.description || "" }}</text>
+        </view>
+      </view>
+
+      <view class="detail__body">
+        <view class="card specs">
+          <view class="spec">
+            <text class="spec__value">{{ dish.duration || "—" }}</text>
+            <text class="tiny">耗时</text>
+          </view>
+          <view class="spec">
+            <text class="spec__value">{{ dish.level || "—" }}</text>
+            <text class="tiny">难度</text>
+          </view>
+          <view class="spec">
+            <text class="spec__value">{{ dish.serve || "—" }}</text>
+            <text class="tiny">份量</text>
+          </view>
+          <view class="spec">
+            <text class="spec__value">{{ dish.kcal || "—" }}</text>
+            <text class="tiny">热量</text>
+          </view>
+        </view>
+
+        <view v-if="tagList.length" class="detail__tags">
+          <text v-for="tag in tagList" :key="tag" class="tag">{{ tag }}</text>
+        </view>
+
+        <view v-if="ingredients.length" class="card">
+          <text class="section-title">用料</text>
+          <view v-for="(item, index) in ingredients" :key="index" class="ingredient">
+            <text class="ingredient__name">{{ item.name }}</text>
+            <text class="muted">{{ item.amount }}</text>
+          </view>
+        </view>
+
+        <view v-if="steps.length" class="card">
+          <text class="section-title">做法</text>
+          <view v-for="(step, index) in steps" :key="index" class="step">
+            <text class="step__index">{{ index + 1 }}</text>
+            <text class="step__text">{{ step }}</text>
+          </view>
+        </view>
+
+        <view v-if="tips.length" class="card">
+          <text class="section-title">小贴士</text>
+          <view v-for="(tip, index) in tips" :key="index" class="tip">{{ tip }}</view>
+        </view>
+
+        <view v-if="!readonly" class="card">
+          <text class="section-title">单项备注</text>
+          <input v-model="remark" class="remark-input" placeholder="如：不要放辣" placeholder-class="search__ph" />
+        </view>
+      </view>
+
+      <view v-if="!readonly" class="bottombar glass glass--strong">
+        <view class="stepper">
+          <text class="stepper__btn" @click="changeCount(-1)">−</text>
+          <text class="stepper__count">{{ count }}</text>
+          <text class="stepper__btn stepper__btn--plus" @click="changeCount(1)">+</text>
+        </view>
+        <view class="bottombar__btn" @click="addToCart">加入购物车</view>
       </view>
     </view>
 
-    <view class="detail__body">
-      <view class="card specs">
-        <view class="spec">
-          <text class="spec__value">{{ dish.duration || "—" }}</text>
-          <text class="tiny">耗时</text>
-        </view>
-        <view class="spec">
-          <text class="spec__value">{{ dish.level || "—" }}</text>
-          <text class="tiny">难度</text>
-        </view>
-        <view class="spec">
-          <text class="spec__value">{{ dish.serve || "—" }}</text>
-          <text class="tiny">份量</text>
-        </view>
-        <view class="spec">
-          <text class="spec__value">{{ dish.kcal || "—" }}</text>
-          <text class="tiny">热量</text>
-        </view>
-      </view>
-
-      <view v-if="tagList.length" class="detail__tags">
-        <text v-for="tag in tagList" :key="tag" class="tag">{{ tag }}</text>
-      </view>
-
-      <view v-if="ingredients.length" class="card">
-        <text class="section-title">用料</text>
-        <view v-for="(item, index) in ingredients" :key="index" class="ingredient">
-          <text class="ingredient__name">{{ item.name }}</text>
-          <text class="muted">{{ item.amount }}</text>
-        </view>
-      </view>
-
-      <view v-if="steps.length" class="card">
-        <text class="section-title">做法</text>
-        <view v-for="(step, index) in steps" :key="index" class="step">
-          <text class="step__index">{{ index + 1 }}</text>
-          <text class="step__text">{{ step }}</text>
-        </view>
-      </view>
-
-      <view v-if="tips.length" class="card">
-        <text class="section-title">小贴士</text>
-        <view v-for="(tip, index) in tips" :key="index" class="tip">{{ tip }}</view>
-      </view>
-
-      <view v-if="!readonly" class="card">
-        <text class="section-title">单项备注</text>
-        <input v-model="remark" class="remark-input" placeholder="如：不要放辣" placeholder-class="search__ph" />
-      </view>
-    </view>
-
-    <view v-if="!readonly" class="bottombar glass glass--strong">
-      <view class="stepper">
-        <text class="stepper__btn" @click="changeCount(-1)">−</text>
-        <text class="stepper__count">{{ count }}</text>
-        <text class="stepper__btn stepper__btn--plus" @click="changeCount(1)">+</text>
-      </view>
-      <view class="bottombar__btn" @click="addToCart">加入购物车</view>
-    </view>
+    <view v-else class="empty">{{ loading ? "加载中…" : "菜品不存在或已下架" }}</view>
   </view>
-
-  <view v-else class="empty">{{ loading ? "加载中…" : "菜品不存在或已下架" }}</view>
 </template>
 
 <style lang="scss" scoped>
@@ -332,9 +334,9 @@ function addToCart() {
   line-height: 56rpx;
   text-align: center;
   border-radius: 50%;
-  border: 1rpx solid rgba(255, 107, 53, 0.4);
+  border: 1rpx solid $lg-accent-border;
   color: $lg-accent;
-  background: rgba(255, 255, 255, 0.6);
+  background: $lg-fill-2;
   font-size: 32rpx;
 }
 

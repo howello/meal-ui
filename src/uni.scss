@@ -25,44 +25,62 @@ $meal-card: #FFFFFF;
 $meal-text: #1E2126;
 $meal-text-2: #8B9199;
 $meal-line: #EFEFEF;
-$meal-danger: #EF4444;
-$meal-warning: #D97706;
-$meal-success: #0E9F5E;
+/* 语义色改为运行时主题令牌（值在 App.vue 里按明/暗定义） */
+$meal-danger: var(--lg-danger);
+$meal-warning: var(--lg-warn);
+$meal-success: var(--lg-ok);
 $meal-primary-shadow: rgba(255, 107, 53, 0.35);
 $meal-tabbar-height: 108rpx;
 
 /* ---- Liquid Glass 主题令牌（Apple 液态玻璃 / 浅色蓝紫环境光 + 暖橙强调）----
-   定稿参数：超透底 + 亮描边；仅核心页面启用，其余页面沿用 $meal-* 不受影响 */
-/* 环境光三色（页面背景渐变 / 柔和光斑） */
+   运行时主题：随明暗变化的语义令牌全部走 CSS 变量（浅色默认值定义在 App.vue 的
+   page/uni-page 上，深色由 App.vue 的 .theme-dark 覆盖）。页面里照旧写 $lg-*，
+   编译后即 var(--lg-*)，因此无需逐页改动引用。尺寸/模糊/强调色不随主题变。 */
+$lg-ink: var(--lg-ink);
+$lg-ink-2: var(--lg-ink-2);
+$lg-ink-3: var(--lg-ink-3);
+$lg-line: var(--lg-line);
+$lg-glass: var(--lg-glass);
+$lg-glass-strong: var(--lg-glass-strong);
+$lg-glass-weak: var(--lg-glass-weak);
+$lg-border: var(--lg-border);
+$lg-edge: var(--lg-edge);
+$lg-shadow: var(--lg-shadow);
+$lg-shadow-sm: var(--lg-shadow-sm);
+$lg-accent-soft: var(--lg-accent-soft);
+$lg-accent-border: var(--lg-accent-border);
+/* 玻璃降级/半透明填充：不支持 backdrop-filter 时的底，或控件/覆盖层底 */
+$lg-fill: var(--lg-fill);
+$lg-fill-2: var(--lg-fill-2);
+$lg-fill-3: var(--lg-fill-3);
+$lg-fill-4: var(--lg-fill-4);
+$lg-fill-bar: var(--lg-fill-bar);
+/* 骨架屏微光 */
+$lg-shimmer-1: var(--lg-shimmer-1);
+$lg-shimmer-2: var(--lg-shimmer-2);
+/* 弹窗遮罩 */
+$lg-mask: var(--lg-mask);
+/* 语义色软底 / 前景（随主题变） */
+$lg-warn-soft: var(--lg-warn-soft);
+$lg-ok-soft: var(--lg-ok-soft);
+$lg-danger-soft: var(--lg-danger-soft);
+$lg-warn: var(--lg-warn);
+$lg-ok: var(--lg-ok);
+$lg-danger: var(--lg-danger);
+
+/* 强调色：暖橙（恒定，保留品牌识别度） */
+$lg-accent: #ff6b35;
+$lg-accent-2: #ffa061;
+$lg-accent-shadow: rgba(255, 107, 53, 0.4);
+
+/* 玻璃参数（恒定） */
+$lg-blur: 30px;
+$lg-sat: 190%;
+
+/* 环境光三色（浅色，仅 page / uni-page 用；深色见 lg-ambient-bg-dark） */
 $lg-amb-1: #93a6ff;
 $lg-amb-2: #c6a6ff;
 $lg-amb-3: #9fd4ff;
-/* 玻璃材质透明度（0~1，越小越透） */
-$lg-glass-a: 0.14; /* 普通卡片 */
-$lg-glass-strong-a: 0.24; /* 强玻璃：TabBar / 结算条 / 弹窗 */
-$lg-glass-weak-a: 0.07; /* 弱玻璃：分类栏 / 内嵌区 */
-$lg-border-a: 0.62; /* 边缘高光描边 */
-$lg-blur: 30px; /* 背景模糊半径 */
-$lg-sat: 190%; /* 背景饱和度增强 */
-$lg-glass: rgba(255, 255, 255, $lg-glass-a);
-$lg-glass-strong: rgba(255, 255, 255, $lg-glass-strong-a);
-$lg-glass-weak: rgba(255, 255, 255, $lg-glass-weak-a);
-$lg-border: rgba(255, 255, 255, $lg-border-a);
-/* 顶部 rim light + 内描边高光 */
-$lg-edge: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 0 0.5px rgba(255, 255, 255, 0.4);
-/* 柔和外阴影（营造层次，非厚重黑投影） */
-$lg-shadow: 0 10px 30px rgba(70, 82, 150, 0.13);
-$lg-shadow-sm: 0 6px 18px rgba(70, 82, 150, 0.09);
-/* 深墨文字（保证对比度，不做模糊文字） */
-$lg-ink: #1b2130;
-$lg-ink-2: #5c6478;
-$lg-ink-3: #8b93a7;
-$lg-line: rgba(120, 130, 170, 0.16);
-/* 强调色：暖橙（保留品牌识别度） */
-$lg-accent: #ff6b35;
-$lg-accent-2: #ffa061;
-$lg-accent-soft: rgba(255, 107, 53, 0.14);
-$lg-accent-shadow: rgba(255, 107, 53, 0.4);
 
 /* 环境光背景（浅蓝紫渐变 + 柔和光斑）：page（各端）与 uni-page（H5 整页容器）共用 */
 @mixin lg-ambient-bg {
@@ -74,6 +92,80 @@ $lg-accent-shadow: rgba(255, 107, 53, 0.4);
     radial-gradient(105% 70% at 104% 14%, $lg-amb-2 0%, transparent 52%),
     radial-gradient(130% 90% at 50% 112%, $lg-amb-3 0%, transparent 58%),
     linear-gradient(165deg, #f2f5ff 0%, #e9edff 42%, #f4ecff 100%);
+}
+
+/* 深色环境光背景（方案 B 石墨中性）：中性近黑灰渐变 + 极弱冷光斑 */
+@mixin lg-ambient-bg-dark {
+  background:
+    radial-gradient(24% 18% at 24% 16%, rgba(255, 255, 255, 0.06), transparent 70%),
+    radial-gradient(26% 20% at 82% 32%, rgba(150, 170, 255, 0.08), transparent 72%),
+    radial-gradient(22% 18% at 40% 86%, rgba(180, 160, 255, 0.06), transparent 72%),
+    radial-gradient(120% 80% at 10% -8%, #262a36 0%, transparent 58%),
+    radial-gradient(100% 70% at 100% 10%, #2c2838 0%, transparent 55%),
+    radial-gradient(120% 90% at 50% 116%, #1d2028 0%, transparent 60%),
+    linear-gradient(165deg, #101216 0%, #15171d 45%, #0f1116 100%);
+}
+
+/* 浅色令牌：定义在 page / uni-page 上（页面里的 $lg-* 即 var(--lg-*)） */
+@mixin lg-theme-light {
+  --lg-ink: #1b2130;
+  --lg-ink-2: #5c6478;
+  --lg-ink-3: #8b93a7;
+  --lg-line: rgba(120, 130, 170, 0.16);
+  --lg-glass: rgba(255, 255, 255, 0.14);
+  --lg-glass-strong: rgba(255, 255, 255, 0.24);
+  --lg-glass-weak: rgba(255, 255, 255, 0.07);
+  --lg-border: rgba(255, 255, 255, 0.62);
+  --lg-edge: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 0 0.5px rgba(255, 255, 255, 0.4);
+  --lg-shadow: 0 10px 30px rgba(70, 82, 150, 0.13);
+  --lg-shadow-sm: 0 6px 18px rgba(70, 82, 150, 0.09);
+  --lg-accent-soft: rgba(255, 107, 53, 0.14);
+  --lg-accent-border: rgba(255, 107, 53, 0.22);
+  --lg-fill: rgba(255, 255, 255, 0.72);
+  --lg-fill-2: rgba(255, 255, 255, 0.6);
+  --lg-fill-3: rgba(255, 255, 255, 0.5);
+  --lg-fill-4: rgba(255, 255, 255, 0.82);
+  --lg-fill-bar: rgba(255, 255, 255, 0.45);
+  --lg-shimmer-1: rgba(255, 255, 255, 0.45);
+  --lg-shimmer-2: rgba(255, 255, 255, 0.15);
+  --lg-mask: rgba(30, 35, 70, 0.28);
+  --lg-warn-soft: #fff4e5;
+  --lg-warn: #d97706;
+  --lg-ok-soft: #e7f8f0;
+  --lg-ok: #0e9f5e;
+  --lg-danger-soft: #fdecec;
+  --lg-danger: #ef4444;
+}
+
+/* 深色令牌（方案 B 石墨中性）：由 App.vue 的 .theme-dark 覆盖 */
+@mixin lg-theme-dark {
+  --lg-ink: #f2f3f5;
+  --lg-ink-2: #a6a9b3;
+  --lg-ink-3: #757982;
+  --lg-line: rgba(255, 255, 255, 0.09);
+  --lg-glass: rgba(255, 255, 255, 0.07);
+  --lg-glass-strong: rgba(255, 255, 255, 0.12);
+  --lg-glass-weak: rgba(255, 255, 255, 0.04);
+  --lg-border: rgba(255, 255, 255, 0.12);
+  --lg-edge: inset 0 1px 0 rgba(255, 255, 255, 0.13), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+  --lg-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+  --lg-shadow-sm: 0 8px 20px rgba(0, 0, 0, 0.4);
+  --lg-accent-soft: rgba(255, 107, 53, 0.18);
+  --lg-accent-border: rgba(255, 107, 53, 0.4);
+  --lg-fill: rgba(255, 255, 255, 0.1);
+  --lg-fill-2: rgba(255, 255, 255, 0.09);
+  --lg-fill-3: rgba(255, 255, 255, 0.08);
+  --lg-fill-4: rgba(255, 255, 255, 0.13);
+  --lg-fill-bar: rgba(255, 255, 255, 0.07);
+  --lg-shimmer-1: rgba(255, 255, 255, 0.08);
+  --lg-shimmer-2: rgba(255, 255, 255, 0.03);
+  --lg-mask: rgba(0, 0, 0, 0.5);
+  --lg-warn-soft: rgba(217, 119, 6, 0.18);
+  --lg-warn: #ffb020;
+  --lg-ok-soft: rgba(14, 159, 94, 0.18);
+  --lg-ok: #4ade9a;
+  --lg-danger-soft: rgba(239, 68, 68, 0.18);
+  --lg-danger: #ff6b6b;
 }
 
 /* 行为相关颜色 */

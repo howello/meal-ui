@@ -49,7 +49,7 @@ function goBack() {
   padding-top: var(--status-bar-height);
   border-radius: 0 0 36rpx 36rpx;
   border-bottom: 1rpx solid $lg-border;
-  background: rgba(255, 255, 255, 0.45);
+  background: $lg-fill-bar;
   backdrop-filter: blur($lg-blur) saturate($lg-sat);
   -webkit-backdrop-filter: blur($lg-blur) saturate($lg-sat);
 }

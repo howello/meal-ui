@@ -82,7 +82,7 @@ function waitText(order: Order): string {
 </script>
 
 <template>
-  <view class="app-fixed">
+  <view class="app-fixed" :class="themeRootClass">
     <view class="header">
       <text class="header__title">待接单 · {{ orders.length }} 单</text>
       <text class="header__sub">{{ userStore.nickName }}，今天辛苦了</text>
@@ -139,7 +139,7 @@ function waitText(order: Order): string {
   padding: calc(60rpx + var(--status-bar-height)) 28rpx 32rpx;
   border-radius: 0 0 36rpx 36rpx;
   border-bottom: 1rpx solid $lg-border;
-  background: rgba(255, 255, 255, 0.45);
+  background: $lg-fill-bar;
   backdrop-filter: blur($lg-blur) saturate($lg-sat);
   -webkit-backdrop-filter: blur($lg-blur) saturate($lg-sat);
 }
@@ -171,7 +171,7 @@ function waitText(order: Order): string {
 .timer {
   font-size: 22rpx;
   color: $meal-warning;
-  background-color: #fff4e5;
+  background-color: $lg-warn-soft;
   padding: 6rpx 16rpx;
   border-radius: 999rpx;
   font-weight: 600;
@@ -253,7 +253,7 @@ function waitText(order: Order): string {
 
 .btn--line {
   flex: 1;
-  background: rgba(255, 255, 255, 0.6);
+  background: $lg-fill-2;
   border: 1rpx solid $lg-line;
   color: $lg-ink-2;
   font-weight: 400;
@@ -268,7 +268,7 @@ function waitText(order: Order): string {
 }
 
 .skeleton-card {
-  background: rgba(255, 255, 255, 0.5);
+  background: $lg-fill-3;
   border-radius: 24rpx;
   padding: 24rpx;
   display: flex;
@@ -292,7 +292,7 @@ function waitText(order: Order): string {
 }
 
 .shimmer {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.45) 25%, rgba(255, 255, 255, 0.15) 37%, rgba(255, 255, 255, 0.45) 63%);
+  background: linear-gradient(90deg, $lg-shimmer-1 25%, $lg-shimmer-2 37%, $lg-shimmer-1 63%);
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
 }

@@ -42,7 +42,7 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(30, 35, 70, 0.28);
+  background: $lg-mask;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
@@ -58,7 +58,7 @@ onBeforeUnmount(() => {
   border: 1px solid $lg-border;
   box-shadow: $lg-shadow, $lg-edge;
   /* 弹窗需要更实的底以保证文字可读，仍叠加背景模糊 */
-  background: rgba(255, 255, 255, 0.72);
+  background: $lg-fill;
   backdrop-filter: blur($lg-blur) saturate(180%);
   -webkit-backdrop-filter: blur($lg-blur) saturate(180%);
 }
@@ -97,7 +97,7 @@ onBeforeUnmount(() => {
 }
 
 .app-dialog__btn--cancel {
-  background: rgba(255, 255, 255, 0.5);
+  background: $lg-fill-3;
   border: 1px solid $lg-border;
   color: $lg-ink-2;
 }

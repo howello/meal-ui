@@ -153,7 +153,7 @@ async function submit() {
 </script>
 
 <template>
-  <view class="page-body">
+  <view class="page-body" :class="themeRootClass">
     <GlassNavBar title="提交新菜" />
 
     <view class="note">想吃什么就提，管理员审核通过后就会出现在点餐区</view>
@@ -256,7 +256,7 @@ async function submit() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(255, 255, 255, 0.6);
+  background: $lg-fill-2;
   border: 1rpx solid $lg-border;
   border-radius: 20rpx;
   padding: 28rpx 24rpx;

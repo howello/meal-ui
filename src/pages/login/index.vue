@@ -209,7 +209,7 @@ function goNext() {
 </script>
 
 <template>
-  <view class="login">
+  <view class="login" :class="themeRootClass">
     <!-- 启动静默进首页的过渡帧：只显示品牌，避免登录表单闪一下 -->
     <view v-if="checking" class="login__logo glass glass--strong">
       <image class="login__logo-img" src="/static/logo.png" mode="aspectFit" />

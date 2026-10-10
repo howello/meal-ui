@@ -137,7 +137,7 @@ function cookText(order: Order): string {
 </script>
 
 <template>
-  <view class="app-fixed">
+  <view class="app-fixed" :class="themeRootClass">
     <view class="header">
       <text class="header__title">制作中 · {{ orders.length }} 单</text>
       <text class="header__sub">逐道菜点完成，全部备好自动出餐</text>
@@ -200,7 +200,7 @@ function cookText(order: Order): string {
   padding: calc(60rpx + var(--status-bar-height)) 28rpx 32rpx;
   border-radius: 0 0 36rpx 36rpx;
   border-bottom: 1rpx solid $lg-border;
-  background: rgba(255, 255, 255, 0.45);
+  background: $lg-fill-bar;
   backdrop-filter: blur($lg-blur) saturate($lg-sat);
   -webkit-backdrop-filter: blur($lg-blur) saturate($lg-sat);
 }
@@ -345,7 +345,7 @@ function cookText(order: Order): string {
   font-size: 24rpx;
   font-weight: 600;
   color: $lg-accent;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1rpx solid rgba(255, 107, 53, 0.4);
+  background: $lg-fill-2;
+  border: 1rpx solid $lg-accent-border;
 }
 </style>

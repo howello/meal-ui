@@ -45,7 +45,7 @@ function imageList(review: Review): string[] {
 </script>
 
 <template>
-  <view class="page-body">
+  <view class="page-body" :class="themeRootClass">
     <GlassNavBar title="我的评价" />
 
     <view v-for="review in reviews" :key="review.reviewId" class="card">

@@ -417,7 +417,7 @@ async function pickCategory(categoryId: number) {
 </script>
 
 <template>
-  <view class="app-fixed app-fixed--topnav">
+  <view class="app-fixed app-fixed--topnav" :class="themeRootClass">
     <GlassNavBar title="今天吃什么" />
 
     <view class="app-fixed__head">
@@ -647,7 +647,7 @@ async function pickCategory(categoryId: number) {
   padding: 14rpx 16rpx;
   margin: 8rpx 0;
   border-radius: 18rpx;
-  background: rgba(255, 255, 255, 0.5);
+  background: $lg-fill-3;
   backdrop-filter: blur(18px) saturate(180%);
   -webkit-backdrop-filter: blur(18px) saturate(180%);
 }
@@ -750,8 +750,8 @@ async function pickCategory(categoryId: number) {
   text-align: center;
   border-radius: 50%;
   color: $lg-accent;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1rpx solid rgba(255, 107, 53, 0.4);
+  background: $lg-fill-2;
+  border: 1rpx solid $lg-accent-border;
   font-size: 30rpx;
   font-weight: 700;
 }
@@ -819,7 +819,7 @@ async function pickCategory(categoryId: number) {
   padding: 20rpx;
   border-radius: 26rpx;
   margin-bottom: 16rpx;
-  background: rgba(255, 255, 255, 0.5);
+  background: $lg-fill-3;
 }
 
 .skeleton-row__ph {
@@ -846,7 +846,7 @@ async function pickCategory(categoryId: number) {
 }
 
 .shimmer {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.45) 25%, rgba(255, 255, 255, 0.15) 37%, rgba(255, 255, 255, 0.45) 63%);
+  background: linear-gradient(90deg, $lg-shimmer-1 25%, $lg-shimmer-2 37%, $lg-shimmer-1 63%);
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
 }

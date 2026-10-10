@@ -130,7 +130,7 @@ function toggle(item: PrepItem) {
 </script>
 
 <template>
-  <view class="page-body">
+  <view class="page-body" :class="themeRootClass">
     <GlassNavBar title="备菜清单" />
 
     <view class="card head">

@@ -10,6 +10,8 @@
         "usingComponents" : true,
         "nvueStyleCompiler" : "uni-app",
         "compilerVersion" : 3,
+        /* 开启深色模式支持：App 端 uni.onThemeChange / getSystemInfoSync().theme 才可用 */
+        "darkmode" : true,
         "splashscreen" : {
             "alwaysShowBeforeRender" : true,
             "waiting" : true,

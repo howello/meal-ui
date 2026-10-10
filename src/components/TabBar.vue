@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useCartStore } from "@/store/cart";
+import { useThemeStore } from "@/store/theme";
 import { useUserStore } from "@/store/user";
 import { svgIcon } from "@/utils/icons";
 
@@ -15,6 +16,7 @@ const props = defineProps<{ active: string }>();
 
 const userStore = useUserStore();
 const cartStore = useCartStore();
+const themeStore = useThemeStore();
 
 /** 点餐员 / 家庭管理员的三个 tab */
 const EATER_TABS: TabItem[] = [
@@ -43,10 +45,11 @@ const CHEF_TABS: TabItem[] = [
 const tabs = computed<TabItem[]>(() => (userStore.tabMode === "kitchen" ? CHEF_TABS : EATER_TABS));
 
 const activeColor = "#FF6B35";
-const normalColor = "#8b93a7";
+/** 未选中图标色：深色下略提亮，保证在深底上的可见度 */
+const normalColor = computed(() => (themeStore.isDark ? "#9aa0ab" : "#8b93a7"));
 
 function iconUrl(item: TabItem): string {
-  return svgIcon(item.icon, item.key === props.active ? activeColor : normalColor);
+  return svgIcon(item.icon, item.key === props.active ? activeColor : normalColor.value);
 }
 
 function switchTo(item: TabItem) {

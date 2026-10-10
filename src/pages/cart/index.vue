@@ -156,7 +156,7 @@ function goConfirm() {
 </script>
 
 <template>
-  <view class="app-fixed app-fixed--topnav">
+  <view class="app-fixed app-fixed--topnav" :class="themeRootClass">
     <GlassNavBar title="购物车">
       <template #right>
         <text v-if="!cartStore.isEmpty" class="nav-clear" @click="clearAll">清空</text>
@@ -238,7 +238,7 @@ function goConfirm() {
     <TabBar active="cart" />
   </view>
 
-  <AppDialog />
+  <AppDialog :class="themeRootClass" />
 </template>
 
 <style lang="scss" scoped>
@@ -308,7 +308,7 @@ function goConfirm() {
 
 /* 备注编辑器（快捷标签 + 自定义输入）：弱玻璃内嵌区 */
 .remark-editor {
-  background: rgba(255, 255, 255, 0.5);
+  background: $lg-fill-3;
   border: 1px solid $lg-border;
   border-radius: 16rpx;
   padding: 16rpx;
@@ -326,7 +326,7 @@ function goConfirm() {
   font-size: 22rpx;
   padding: 8rpx 20rpx;
   border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.6);
+  background: $lg-fill-2;
   color: $lg-ink-2;
   border: 1rpx solid $lg-border;
 }
@@ -341,7 +341,7 @@ function goConfirm() {
 .remark-editor__input {
   font-size: 24rpx;
   color: $lg-ink;
-  background: rgba(255, 255, 255, 0.6);
+  background: $lg-fill-2;
   border-radius: 12rpx;
   padding: 14rpx 16rpx;
 }
@@ -382,9 +382,9 @@ function goConfirm() {
   line-height: 48rpx;
   text-align: center;
   border-radius: 50%;
-  border: 1rpx solid rgba(255, 107, 53, 0.4);
+  border: 1rpx solid $lg-accent-border;
   color: $lg-accent;
-  background: rgba(255, 255, 255, 0.6);
+  background: $lg-fill-2;
   font-size: 28rpx;
 }
 

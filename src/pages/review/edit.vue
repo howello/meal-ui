@@ -105,7 +105,7 @@ async function submit() {
 </script>
 
 <template>
-  <view class="page-body">
+  <view class="page-body" :class="themeRootClass">
     <GlassNavBar title="写评价" />
 
     <view v-if="order" class="card">

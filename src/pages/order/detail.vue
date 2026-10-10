@@ -99,74 +99,76 @@ function goReview() {
 </script>
 
 <template>
-  <GlassNavBar title="订单详情" />
+  <view class="theme-page" :class="themeRootClass">
+    <GlassNavBar title="订单详情" />
 
-  <view v-if="order" class="page-body">
-    <view class="card status">
-      <text class="status__text">{{ statusText(order.status) }}</text>
-      <text class="tiny status__hint">{{ statusHint }}</text>
-      <view class="timeline">
-        <view v-for="step in timeline" :key="step.key" class="timeline__node" :class="{ 'timeline__node--done': step.done }">
-          <view class="timeline__bar"></view>
-          <text class="timeline__label">{{ step.text }}</text>
+    <view v-if="order" class="page-body">
+      <view class="card status">
+        <text class="status__text">{{ statusText(order.status) }}</text>
+        <text class="tiny status__hint">{{ statusHint }}</text>
+        <view class="timeline">
+          <view v-for="step in timeline" :key="step.key" class="timeline__node" :class="{ 'timeline__node--done': step.done }">
+            <view class="timeline__bar"></view>
+            <text class="timeline__label">{{ step.text }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="card">
+        <view v-for="item in order.items || []" :key="item.itemId" class="item">
+          <image v-if="item.dishCover" class="item__cover" :src="item.dishCover" mode="aspectFill" />
+          <view v-else class="item__cover item__cover--ph">{{ item.dishName }}</view>
+          <view class="item__main">
+            <text class="item__name">{{ item.dishName }}</text>
+            <text v-if="item.remark" class="tiny">{{ item.remark }}</text>
+          </view>
+          <text class="muted">× {{ item.count }}</text>
+        </view>
+      </view>
+
+      <view class="card">
+        <view class="row-between info">
+          <text class="muted">订单号</text>
+          <text class="value">{{ order.orderNo }}</text>
+        </view>
+        <view class="row-between info">
+          <text class="muted">下单时间</text>
+          <text class="value">{{ order.createTime }}</text>
+        </view>
+        <view class="row-between info">
+          <text class="muted">点餐人</text>
+          <text class="value">{{ order.userName || "—" }}</text>
+        </view>
+        <view class="row-between info">
+          <text class="muted">备注</text>
+          <text class="value">{{ order.orderRemark || "—" }}</text>
+        </view>
+      </view>
+
+      <view class="actions">
+        <view v-if="order.status === ORDER_STATUS.WAITING" class="actions__btn actions__btn--cancel" @click="doCancel">
+          取消订单
+        </view>
+        <view
+          v-else-if="order.status === ORDER_STATUS.FINISHED && !order.reviewed"
+          class="actions__btn"
+          @click="goReview"
+        >
+          去评价
+        </view>
+        <view v-else-if="order.status === ORDER_STATUS.FINISHED" class="actions__btn actions__btn--disabled">
+          已评价
+        </view>
+        <view v-else-if="order.status === ORDER_STATUS.COOKING" class="actions__btn actions__btn--disabled">
+          待完成后评价
         </view>
       </view>
     </view>
 
-    <view class="card">
-      <view v-for="item in order.items || []" :key="item.itemId" class="item">
-        <image v-if="item.dishCover" class="item__cover" :src="item.dishCover" mode="aspectFill" />
-        <view v-else class="item__cover item__cover--ph">{{ item.dishName }}</view>
-        <view class="item__main">
-          <text class="item__name">{{ item.dishName }}</text>
-          <text v-if="item.remark" class="tiny">{{ item.remark }}</text>
-        </view>
-        <text class="muted">× {{ item.count }}</text>
-      </view>
-    </view>
+    <view v-else class="empty">{{ loading ? "加载中…" : "订单不存在" }}</view>
 
-    <view class="card">
-      <view class="row-between info">
-        <text class="muted">订单号</text>
-        <text class="value">{{ order.orderNo }}</text>
-      </view>
-      <view class="row-between info">
-        <text class="muted">下单时间</text>
-        <text class="value">{{ order.createTime }}</text>
-      </view>
-      <view class="row-between info">
-        <text class="muted">点餐人</text>
-        <text class="value">{{ order.userName || "—" }}</text>
-      </view>
-      <view class="row-between info">
-        <text class="muted">备注</text>
-        <text class="value">{{ order.orderRemark || "—" }}</text>
-      </view>
-    </view>
-
-    <view class="actions">
-      <view v-if="order.status === ORDER_STATUS.WAITING" class="actions__btn actions__btn--cancel" @click="doCancel">
-        取消订单
-      </view>
-      <view
-        v-else-if="order.status === ORDER_STATUS.FINISHED && !order.reviewed"
-        class="actions__btn"
-        @click="goReview"
-      >
-        去评价
-      </view>
-      <view v-else-if="order.status === ORDER_STATUS.FINISHED" class="actions__btn actions__btn--disabled">
-        已评价
-      </view>
-      <view v-else-if="order.status === ORDER_STATUS.COOKING" class="actions__btn actions__btn--disabled">
-        待完成后评价
-      </view>
-    </view>
+    <AppDialog />
   </view>
-
-  <view v-else class="empty">{{ loading ? "加载中…" : "订单不存在" }}</view>
-
-  <AppDialog />
 </template>
 
 <style lang="scss" scoped>
@@ -293,7 +295,7 @@ function goReview() {
 /* 取消订单：半透明玻璃底 + 危险色描边，一眼能看出是按钮 */
 .actions__btn--cancel {
   box-sizing: border-box;
-  background: rgba(255, 255, 255, 0.6);
+  background: $lg-fill-2;
   border: 2rpx solid $meal-danger;
   color: $meal-danger;
   box-shadow: none;

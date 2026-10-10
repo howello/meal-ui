@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { myOrders } from "@/api/order";
 import { myProposals } from "@/api/proposal";
 import { myReviews } from "@/api/review";
@@ -9,11 +9,42 @@ import GlassCard from "@/components/GlassCard.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import TabBar from "@/components/TabBar.vue";
 import { confirm } from "@/composables/useDialog";
+import { useThemeStore, type ThemeMode } from "@/store/theme";
 import { useUserStore } from "@/store/user";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const userStore = useUserStore();
 useOrderNotifierLifecycle();
+
+/* ---- 外观（主题）设置 ---- */
+const themeStore = useThemeStore();
+const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: "light", label: "浅色" },
+  { value: "dark", label: "深色" },
+  { value: "system", label: "跟随系统" },
+  { value: "time", label: "按时间" },
+];
+/** 当前档位的简短说明（含当前实际明暗） */
+const themeHint = computed(() => {
+  const now = themeStore.isDark ? "深色" : "浅色";
+  if (themeStore.mode === "system") {
+    return `跟随系统 · 当前${now}`;
+  }
+  if (themeStore.mode === "time") {
+    return `按时间 · 当前${now}`;
+  }
+  return themeStore.mode === "dark" ? "深色 · 始终深色" : "浅色 · 始终浅色";
+});
+/** 档位补充说明 */
+const themeDetail = computed(() => {
+  if (themeStore.mode === "time") {
+    return "20:00–08:00 自动切为深色";
+  }
+  if (themeStore.mode === "system") {
+    return "随系统外观实时切换";
+  }
+  return "手动选择，覆盖系统与时间";
+});
 
 const stats = ref({ orders: 0, reviews: 0, proposals: 0 });
 
@@ -81,7 +112,7 @@ const avatarText = (): string => {
 </script>
 
 <template>
-  <view class="app-fixed app-fixed--topnav">
+  <view class="app-fixed app-fixed--topnav" :class="themeRootClass">
     <GlassNavBar title="个人中心" />
 
     <view class="app-fixed__scroll app-fixed__scroll--tabbed">
@@ -110,6 +141,25 @@ const avatarText = (): string => {
           <text class="tiny">我的提案</text>
         </GlassCard>
       </view>
+
+      <GlassCard :pad="false" class="appearance">
+        <view class="appearance__head">
+          <text class="menu__text">外观</text>
+          <text class="tiny">{{ themeHint }}</text>
+        </view>
+        <view class="modes">
+          <view
+            v-for="opt in THEME_OPTIONS"
+            :key="opt.value"
+            class="modes__btn"
+            :class="{ 'modes__btn--on': themeStore.mode === opt.value }"
+            @click="themeStore.setMode(opt.value)"
+          >
+            {{ opt.label }}
+          </view>
+        </view>
+        <text class="tiny appearance__detail">{{ themeDetail }}</text>
+      </GlassCard>
 
       <GlassCard :pad="false" class="menu">
         <view class="menu__item" @click="go('/pages/order/list')">
@@ -156,7 +206,7 @@ const avatarText = (): string => {
     <TabBar active="mine" />
   </view>
 
-  <AppDialog />
+  <AppDialog :class="themeRootClass" />
 </template>
 
 <style lang="scss" scoped>
@@ -258,5 +308,52 @@ const avatarText = (): string => {
 .chev {
   color: $lg-ink-3;
   font-size: 30rpx;
+}
+
+/* 外观（主题）设置：四档分段控件 */
+.appearance {
+  margin-top: 24rpx;
+  padding: 24rpx 20rpx;
+}
+
+.appearance__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 18rpx;
+}
+
+.appearance__head .menu__text {
+  font-weight: 600;
+}
+
+.modes {
+  display: flex;
+  gap: 8rpx;
+  padding: 8rpx;
+  border-radius: 18rpx;
+  background: $lg-fill-2;
+  border: 1px solid $lg-border;
+}
+
+.modes__btn {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  border-radius: 14rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: $lg-ink-2;
+}
+
+.modes__btn--on {
+  color: #fff;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 8rpx 18rpx $lg-accent-shadow;
+}
+
+.appearance__detail {
+  display: block;
+  margin-top: 14rpx;
 }
 </style>
