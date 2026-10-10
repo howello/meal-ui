@@ -4,6 +4,7 @@ import { reactive, ref } from "vue";
 import { getCaptcha, login, type CaptchaInfo } from "@/api/auth";
 import GlassButton from "@/components/GlassButton.vue";
 import { useUserStore } from "@/store/user";
+import { getToken } from "@/utils/auth";
 import { stopOrderNotifier } from "@/utils/notify";
 
 const LOGIN_REMEMBER_KEY = "meal-login-remember";
@@ -27,8 +28,18 @@ const captcha = ref<CaptchaInfo | null>(null);
 const turnstileToken = ref("");
 const submitting = ref(false);
 const rememberPwd = ref(true);
+/** 启动静默进首页时为 true：只渲染品牌占位，不渲染登录表单。
+ *  初值直接看本地有无 token，保证有 token 时首帧就是占位、不闪一下表单。 */
+const checking = ref(!!getToken());
 
 onLoad(() => {
+  // 本页是 pages.json 里的启动页，冷启动必然先到这。本地若还留着 token，
+  // 就直接凭缓存的用户身份进首页（秒进），不再等 /getInfo；token 真失效时，
+  // 首页 onShow 的后台刷新会拿到 401，由请求层清 token 并跳回本页。
+  if (getToken()) {
+    goNext();
+    return;
+  }
   const remembered = parseRemembered(uni.getStorageSync(LOGIN_REMEMBER_KEY));
   if (remembered) {
     form.username = remembered.username;
@@ -199,41 +210,49 @@ function goNext() {
 
 <template>
   <view class="login">
-    <view class="login__logo glass glass--strong">
+    <!-- 启动静默进首页的过渡帧：只显示品牌，避免登录表单闪一下 -->
+    <view v-if="checking" class="login__logo glass glass--strong">
       <image class="login__logo-img" src="/static/logo.png" mode="aspectFit" />
     </view>
-    <text class="login__title">家里吃什么</text>
-    <text class="login__sub">登录后开始点餐</text>
+    <text v-if="checking" class="login__title">家里吃什么</text>
 
-    <view class="field glass">
-      <text class="field__label">账号</text>
-      <input v-model="form.username" class="field__input" placeholder="手机号 / 用户名" placeholder-class="field__ph" />
-    </view>
-    <view class="field glass">
-      <text class="field__label">密码</text>
-      <input v-model="form.password" class="field__input" password placeholder="请输入密码" placeholder-class="field__ph" />
-    </view>
-    <view v-if="captcha?.captchaEnabled" class="field field--captcha glass">
-      <input v-model="form.code" class="field__input" placeholder="验证码" placeholder-class="field__ph" />
-      <image v-if="captchaImage()" class="field__captcha" :src="captchaImage()" @click="loadCaptcha" />
-      <text v-else class="field__captcha-text" @click="loadCaptcha">刷新</text>
-    </view>
-
-    <view id="meal-turnstile" class="turnstile"></view>
-
-    <GlassButton class="login__btn" :disabled="submitting" @click="submit">
-      {{ submitting ? "登录中…" : "登 录" }}
-    </GlassButton>
-
-    <view class="login__row">
-      <view class="login__remember" @click="rememberPwd = !rememberPwd">
-        <text class="login__checkbox" :class="{ 'login__checkbox--on': rememberPwd }">
-          {{ rememberPwd ? "✓" : "" }}
-        </text>
-        <text class="tiny">记住密码</text>
+    <template v-else>
+      <view class="login__logo glass glass--strong">
+        <image class="login__logo-img" src="/static/logo.png" mode="aspectFit" />
       </view>
-      <text class="tiny">忘记密码请联系家庭管理员</text>
-    </view>
+      <text class="login__title">家里吃什么</text>
+      <text class="login__sub">登录后开始点餐</text>
+
+      <view class="field glass">
+        <text class="field__label">账号</text>
+        <input v-model="form.username" class="field__input" placeholder="手机号 / 用户名" placeholder-class="field__ph" />
+      </view>
+      <view class="field glass">
+        <text class="field__label">密码</text>
+        <input v-model="form.password" class="field__input" password placeholder="请输入密码" placeholder-class="field__ph" />
+      </view>
+      <view v-if="captcha?.captchaEnabled" class="field field--captcha glass">
+        <input v-model="form.code" class="field__input" placeholder="验证码" placeholder-class="field__ph" />
+        <image v-if="captchaImage()" class="field__captcha" :src="captchaImage()" @click="loadCaptcha" />
+        <text v-else class="field__captcha-text" @click="loadCaptcha">刷新</text>
+      </view>
+
+      <view id="meal-turnstile" class="turnstile"></view>
+
+      <GlassButton class="login__btn" :disabled="submitting" @click="submit">
+        {{ submitting ? "登录中…" : "登 录" }}
+      </GlassButton>
+
+      <view class="login__row">
+        <view class="login__remember" @click="rememberPwd = !rememberPwd">
+          <text class="login__checkbox" :class="{ 'login__checkbox--on': rememberPwd }">
+            {{ rememberPwd ? "✓" : "" }}
+          </text>
+          <text class="tiny">记住密码</text>
+        </view>
+        <text class="tiny">忘记密码请联系家庭管理员</text>
+      </view>
+    </template>
   </view>
 </template>
 

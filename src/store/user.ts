@@ -5,6 +5,8 @@ import { getToken, removeToken, setToken } from "@/utils/auth";
 import { stopOrderNotifier } from "@/utils/notify";
 
 const VIEW_MODE_KEY = "meal-view-mode";
+/** 用户资料/角色/权限的本地缓存，用于冷启动直接恢复身份、跳过等待网络 */
+const USER_CACHE_KEY = "meal-user-cache";
 
 interface UserState {
   token: string;
@@ -76,11 +78,33 @@ export const useUserStore = defineStore("user", {
     },
   },
   actions: {
-    /** App 启动时把本地 token、视图与购物车恢复进内存 */
+    /** App 启动时把本地 token、视图与用户缓存恢复进内存 */
     restore() {
       this.token = getToken();
       const mode = uni.getStorageSync(VIEW_MODE_KEY);
       this.viewMode = mode === "kitchen" || mode === "eater" ? mode : "";
+      this.restoreUserCache();
+    },
+    /**
+     * 恢复上次登录缓存的用户资料与角色权限
+     *
+     * 冷启动时先据此直接进首页（秒进），不必等 /getInfo；再由各页 onShow
+     * 后台刷新校验，token 真失效时由请求层 401 踢回登录页。
+     */
+    restoreUserCache() {
+      try {
+        const raw = uni.getStorageSync(USER_CACHE_KEY);
+        const cached = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (!cached || typeof cached !== "object") {
+          return;
+        }
+        const data = cached as { user?: UserInfo | null; roles?: unknown; permissions?: unknown };
+        this.user = data.user ?? null;
+        this.roles = Array.isArray(data.roles) ? (data.roles as string[]) : [];
+        this.permissions = Array.isArray(data.permissions) ? (data.permissions as string[]) : [];
+      } catch (e) {
+        // 缓存损坏当作没有，等后台刷新覆盖
+      }
     },
     setToken(token: string) {
       this.token = token;
@@ -99,7 +123,23 @@ export const useUserStore = defineStore("user", {
       this.user = res.user;
       this.roles = res.roles || [];
       this.permissions = res.permissions || [];
+      this.persistUserCache();
       return res;
+    },
+    /** 把当前身份写入本地缓存，供下次冷启动秒进 */
+    persistUserCache() {
+      try {
+        uni.setStorageSync(
+          USER_CACHE_KEY,
+          JSON.stringify({ user: this.user, roles: this.roles, permissions: this.permissions }),
+        );
+      } catch (e) {
+        // 本地缓存不可用不影响本次登录
+      }
+    },
+    /** 后台静默刷新身份，不阻塞页面渲染；失败（含 401）交给请求层处理 */
+    refreshInfo() {
+      void this.fetchInfo().catch(() => {});
     },
     async logout() {
       try {
@@ -118,6 +158,7 @@ export const useUserStore = defineStore("user", {
       this.viewMode = "";
       removeToken();
       uni.removeStorageSync(VIEW_MODE_KEY);
+      uni.removeStorageSync(USER_CACHE_KEY);
     },
   },
 });

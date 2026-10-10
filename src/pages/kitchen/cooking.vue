@@ -31,6 +31,9 @@ onShow(async () => {
     } catch (e) {
       return;
     }
+  } else {
+    // 已从本地缓存恢复身份：先渲染，再后台刷新一次，token 失效由请求层踢回登录
+    userStore.refreshInfo();
   }
   loadDoneMap();
   loadOrders();
