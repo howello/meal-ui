@@ -67,27 +67,90 @@ onShow(async () => {
     // 已从本地缓存恢复身份：先渲染，再后台刷新一次，token 失效由请求层踢回登录
     userStore.refreshInfo();
   }
-  await loadCategories();
-  await loadDishes();
-  await nextTick();
-  await measureAndHighlight();
+  // 已加载过全量菜单且不在搜索态（如从菜品详情返回）：直接用内存数据，不重复请求
+  if (menuInitialized && !keyword.value) {
+    await nextTick();
+    await measureAndHighlight();
+    return;
+  }
+  // 其余情况：读本地缓存秒显；只有首次无缓存时才发请求
+  await loadFromCacheOrNetwork();
 });
 
-/** 下拉刷新：重新拉取分类与菜品列表 */
+/* ============ 本地缓存：命中即读、仅下拉刷新才重新拉取 ============ */
+/** 分类 + 全量菜品的本地缓存 key */
+const MENU_CACHE_KEY = "meal-menu-cache";
+/** 本次会话是否已加载过全量菜单（命中缓存或请求成功后置真），onShow 据此跳过重复加载 */
+let menuInitialized = false;
+
+/** 读取本地菜单缓存；不存在或损坏返回 null */
+function readMenuCache(): { categories: Category[]; dishes: Dish[] } | null {
+  try {
+    const raw = uni.getStorageSync(MENU_CACHE_KEY);
+    const cached = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!cached || !Array.isArray(cached.categories) || !Array.isArray(cached.dishes)) {
+      return null;
+    }
+    return { categories: cached.categories, dishes: cached.dishes };
+  } catch (e) {
+    return null;
+  }
+}
+
+/** 把当前分类与全量菜品写入本地缓存 */
+function writeMenuCache() {
+  try {
+    uni.setStorageSync(
+      MENU_CACHE_KEY,
+      JSON.stringify({ categories: categories.value, dishes: dishes.value }),
+    );
+  } catch (e) {
+    // 本地缓存不可用不影响本次展示
+  }
+}
+
+/** 强制拉取分类与全量菜品，成功后刷新缓存并重新测量高亮 */
+async function refreshAll() {
+  keyword.value = "";
+  await Promise.all([loadCategories(), loadDishes()]);
+  writeMenuCache();
+  menuInitialized = true;
+  activeCategoryId.value = undefined;
+  scrollTo.value = 0;
+  scrolledTop = 0;
+  scrollContentHeight = 0;
+  await nextTick();
+  await measureAndHighlight();
+}
+
+/** 进页面加载：命中缓存直接渲染，未命中才请求 */
+async function loadFromCacheOrNetwork() {
+  keyword.value = "";
+  const cached = readMenuCache();
+  if (cached) {
+    categories.value = cached.categories;
+    dishes.value = cached.dishes;
+    menuInitialized = true;
+    await nextTick();
+    await measureAndHighlight();
+    return;
+  }
+  await refreshAll();
+}
+
+/** 下拉刷新：强制重新拉取分类与菜品列表并覆盖缓存 */
 async function onRefresh() {
   refreshing.value = true;
   try {
-    await Promise.all([loadCategories(), loadDishes()]);
-    activeCategoryId.value = undefined;
-    scrollTo.value = 0;
-    scrolledTop = 0;
-    scrollContentHeight = 0;
-    await nextTick();
-    await measureAndHighlight();
+    await refreshAll();
   } finally {
     refreshing.value = false;
   }
 }
+
+/* ============ 下拉刷新：调大阈值让下拉更「沉」，做出阻尼感 ============ */
+/** 下拉阈值（px），与模板 refresher-threshold 保持一致 */
+const REFRESHER_THRESHOLD = 80;
 
 async function loadCategories() {
   try {
@@ -215,6 +278,20 @@ function measureGroups(): Promise<{ box: UniApp.NodeInfo | null; rects: UniApp.N
   });
 }
 
+/** 左侧分类栏受控滚动目标：右侧切换高亮分组时，把对应分类项滚入可视区 */
+const railIntoView = ref("");
+
+/** 让左侧第 index 个分类滚入可视区；uni 对相同值不触发滚动，故先清空再设置 */
+function syncRail(index: number) {
+  if (index < 0) {
+    return;
+  }
+  railIntoView.value = "";
+  nextTick(() => {
+    railIntoView.value = `rail-${index}`;
+  });
+}
+
 /** 根据「组顶 ≤ 容器可视顶 + 阈值」的最后一个分组，滚动到左栏高亮。
  *  atBottom 为真时（已滚到底）直接高亮最后一个分组：最后一个分组往往顶不到容器顶，
  *  否则点它/滚到底都会错误地高亮倒数第二个分组。 */
@@ -234,6 +311,7 @@ function computeActive(rects: UniApp.NodeInfo[], boxTop: number, atBottom = fals
   const target = g ? g.cat.categoryId : undefined;
   if (target !== activeCategoryId.value) {
     activeCategoryId.value = target;
+    syncRail(idx);
   }
 }
 
@@ -292,6 +370,7 @@ async function pickCategory(categoryId: number) {
   }
   const idx = groups.value.indexOf(g);
   activeCategoryId.value = categoryId;
+  syncRail(idx);
   categoryPickInFlight = true;
   if (categoryPickTimer !== null) {
     clearTimeout(categoryPickTimer);
@@ -354,8 +433,13 @@ async function pickCategory(categoryId: number) {
 
     <!-- 海底捞式主体：左分类栏 + 右整段连续菜品流 -->
     <view class="menu">
-      <!-- 左侧竖向滚动分类栏 -->
-      <scroll-view scroll-y class="rail glass glass--weak">
+      <!-- 左侧竖向滚动分类栏（右侧滚动切换分组时，高亮项自动滚入可视区） -->
+      <scroll-view
+        scroll-y
+        class="rail glass glass--weak"
+        :scroll-into-view="railIntoView"
+        scroll-with-animation
+      >
         <view
           v-for="(g, i) in groups"
           :key="g.cat.categoryId"
@@ -367,6 +451,8 @@ async function pickCategory(categoryId: number) {
           <text class="rail-item__ic">{{ g.icon }}</text>
           <text class="rail-item__name">{{ g.cat.name }}</text>
         </view>
+        <!-- 底部为悬浮 TabBar 让位：否则最后一个分类会被 TabBar 压住看不见 -->
+        <view class="rail-tail"></view>
       </scroll-view>
 
       <!-- 右侧整段连续滚动菜品流（按分类分组的吸顶标题 + 菜品行） -->
@@ -377,6 +463,8 @@ async function pickCategory(categoryId: number) {
         scroll-with-animation
         :refresher-enabled="true"
         :refresher-triggered="refreshing"
+        :refresher-threshold="REFRESHER_THRESHOLD"
+        refresher-background="transparent"
         @refresherrefresh="onRefresh"
         @scroll="onDishScroll"
       >
@@ -408,7 +496,7 @@ async function pickCategory(categoryId: number) {
               class="dish glass"
               @click="openDish(dish)"
             >
-              <image v-if="dish.cover" class="dish__cover" :src="dish.cover" mode="aspectFill" />
+              <image v-if="dish.cover" class="dish__cover" :src="dish.cover" mode="aspectFill" lazy-load />
               <view v-else class="dish__cover dish__cover--ph">{{ dish.name }}</view>
 
               <view class="dish__body">
@@ -521,6 +609,12 @@ async function pickCategory(categoryId: number) {
   font-size: 36rpx;
   line-height: 1;
   margin-bottom: 6rpx;
+}
+
+/* 左侧分类栏底部为悬浮 TabBar 让位（与右侧 .menu-tail 同高），
+   否则最后一个分类会被 TabBar 压住看不见 */
+.rail-tail {
+  height: calc(170rpx + env(safe-area-inset-bottom));
 }
 
 /* 右侧整段连续滚动菜品流：透明底，露出环境光，菜品本身为玻璃卡 */
