@@ -77,7 +77,7 @@ const avatarText = (): string => {
 </script>
 
 <template>
-  <view class="app-fixed glass-page">
+  <view class="app-fixed">
     <view class="app-fixed__scroll app-fixed__scroll--tabbed">
       <GlassCard class="profile">
         <view class="avatar">{{ avatarText() }}</view>

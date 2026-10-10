@@ -198,7 +198,7 @@ function goNext() {
 </script>
 
 <template>
-  <view class="login glass-page">
+  <view class="login">
     <view class="login__logo glass glass--strong">
       <image class="login__logo-img" src="/static/logo.png" mode="aspectFit" />
     </view>
@@ -242,7 +242,7 @@ function goNext() {
   /* 全屏固定：固定定位铺满视口，整页不可上下滚动。
      不用 height: 100vh —— view 默认 content-box，100vh 再加上下 padding 会超出视口，
      手机浏览器的 100vh 还包含地址栏。
-     背景由 .glass-page 提供（浅蓝紫环境光渐变）。 */
+     背景由 page / uni-page 提供（浅蓝紫环境光渐变）。 */
   position: fixed;
   top: 0;
   right: 0;

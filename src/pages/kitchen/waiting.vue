@@ -135,7 +135,7 @@ function waitText(order: Order): string {
   padding: calc(60rpx + var(--status-bar-height)) 28rpx 32rpx;
   border-radius: 0 0 36rpx 36rpx;
   border-bottom: 1rpx solid $lg-border;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.45);
   backdrop-filter: blur($lg-blur) saturate($lg-sat);
   -webkit-backdrop-filter: blur($lg-blur) saturate($lg-sat);
 }

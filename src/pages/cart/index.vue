@@ -155,7 +155,7 @@ function goConfirm() {
 </script>
 
 <template>
-  <view class="app-fixed glass-page">
+  <view class="app-fixed">
     <view class="app-fixed__head">
       <view class="row-between head">
         <text class="section-title">购物车</text>

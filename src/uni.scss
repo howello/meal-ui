@@ -64,7 +64,7 @@ $lg-accent-2: #ffa061;
 $lg-accent-soft: rgba(255, 107, 53, 0.14);
 $lg-accent-shadow: rgba(255, 107, 53, 0.4);
 
-/* 环境光背景（浅蓝紫渐变 + 柔和光斑）：page 与 .glass-page 共用 */
+/* 环境光背景（浅蓝紫渐变 + 柔和光斑）：page（各端）与 uni-page（H5 整页容器）共用 */
 @mixin lg-ambient-bg {
   background:
     radial-gradient(24% 18% at 24% 16%, rgba(255, 255, 255, 0.85), transparent 70%),

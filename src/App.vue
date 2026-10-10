@@ -121,10 +121,34 @@ page {
    超透底 + 亮描边 + 背景模糊/饱和 + 柔和内外阴影
    ============================================================ */
 
-/* 页面环境光背景：与 page 一致（自定义导航页/固定视口页在根容器上再铺一层） */
-.glass-page {
+/* 页面环境光背景由 page / uni-page 提供（见上），此处不再在页面根容器重复铺一层，
+   否则固定导航栏下沿会出现两层渐变的接缝 */
+
+/* H5：uni-app 原生导航栏（今天吃什么 / 购物车 / 个人中心…）玻璃化。
+   原生导航栏是 position:fixed 的 uni-page-head，吃不到页面样式，
+   这里把环境光渐变提到整页容器 uni-page 上，让导航栏背后也是同一渐变，
+   再把 uni-page-body 置透明，避免导航栏下沿出现两层渐变的接缝。 */
+/* #ifdef H5 */
+uni-page {
   @include lg-ambient-bg;
 }
+
+uni-page-body {
+  background: transparent !important;
+}
+
+uni-page-head {
+  color: $lg-ink !important;
+  background: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur($lg-blur) saturate($lg-sat);
+  -webkit-backdrop-filter: blur($lg-blur) saturate($lg-sat);
+  border-bottom: 1px solid $lg-border;
+}
+
+uni-page-head .uni-page-head__title {
+  color: $lg-ink !important;
+}
+/* #endif */
 
 /* 玻璃基元：默认给半透明白底作降级（小程序等不支持 backdrop-filter 时仍可读），
    支持背景模糊时再切成真玻璃 */
