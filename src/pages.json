@@ -18,6 +18,7 @@
       "path": "pages/menu/index",
       "style": {
         "navigationBarTitleText": "今天吃什么",
+        "navigationStyle": "custom",
         "navigationBarBackgroundColor": "#F1F4FF",
         "backgroundColor": "#EEF1FF"
       }
@@ -25,13 +26,15 @@
     {
       "path": "pages/menu/detail",
       "style": {
-        "navigationBarTitleText": "菜品详情"
+        "navigationBarTitleText": "菜品详情",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/cart/index",
       "style": {
         "navigationBarTitleText": "购物车",
+        "navigationStyle": "custom",
         "navigationBarBackgroundColor": "#F1F4FF",
         "backgroundColor": "#EEF1FF"
       }
@@ -40,6 +43,7 @@
       "path": "pages/mine/index",
       "style": {
         "navigationBarTitleText": "个人中心",
+        "navigationStyle": "custom",
         "navigationBarBackgroundColor": "#F1F4FF",
         "backgroundColor": "#EEF1FF"
       }
@@ -64,49 +68,57 @@
       "path": "pages/kitchen/prep",
       "style": {
         "navigationBarTitleText": "备菜清单",
+        "navigationStyle": "custom",
         "backgroundColor": "#EEF1FF"
       }
     },
     {
       "path": "pages/order/confirm",
       "style": {
-        "navigationBarTitleText": "确认下单"
+        "navigationBarTitleText": "确认下单",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/order/list",
       "style": {
-        "navigationBarTitleText": "我的订单"
+        "navigationBarTitleText": "我的订单",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/order/detail",
       "style": {
-        "navigationBarTitleText": "订单详情"
+        "navigationBarTitleText": "订单详情",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/review/edit",
       "style": {
-        "navigationBarTitleText": "写评价"
+        "navigationBarTitleText": "写评价",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/review/list",
       "style": {
-        "navigationBarTitleText": "我的评价"
+        "navigationBarTitleText": "我的评价",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/proposal/edit",
       "style": {
-        "navigationBarTitleText": "提交新菜"
+        "navigationBarTitleText": "提交新菜",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/proposal/list",
       "style": {
-        "navigationBarTitleText": "我的提案"
+        "navigationBarTitleText": "我的提案",
+        "navigationStyle": "custom"
       }
     }
   ],

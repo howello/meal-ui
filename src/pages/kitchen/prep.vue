@@ -3,6 +3,7 @@ import { onLoad } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { getDish } from "@/api/dish";
 import { orderDetail } from "@/api/order";
+import GlassNavBar from "@/components/GlassNavBar.vue";
 import type { Ingredient } from "@/types";
 
 /** 合并后某个食材的来源：哪道菜、该菜对它的用量 */
@@ -130,6 +131,8 @@ function toggle(item: PrepItem) {
 
 <template>
   <view class="page-body">
+    <GlassNavBar title="备菜清单" />
+
     <view class="card head">
       <view class="row-between">
         <text class="head__title">备菜清单</text>

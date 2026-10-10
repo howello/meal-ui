@@ -3,6 +3,7 @@ import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { cancelOrder, orderDetail } from "@/api/order";
 import AppDialog from "@/components/AppDialog.vue";
+import GlassNavBar from "@/components/GlassNavBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
@@ -98,6 +99,8 @@ function goReview() {
 </script>
 
 <template>
+  <GlassNavBar title="订单详情" />
+
   <view v-if="order" class="page-body">
     <view class="card status">
       <text class="status__text">{{ statusText(order.status) }}</text>

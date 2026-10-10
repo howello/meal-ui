@@ -2,6 +2,7 @@
 import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { submitOrder, type SubmitOrderItem } from "@/api/order";
+import GlassNavBar from "@/components/GlassNavBar.vue";
 import { useCartStore } from "@/store/cart";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 
@@ -63,6 +64,8 @@ async function submit() {
 
 <template>
   <view class="page-body">
+    <GlassNavBar title="确认下单" />
+
     <view class="card">
       <view class="row-between">
         <text class="muted">下单时间</text>

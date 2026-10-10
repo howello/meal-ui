@@ -6,6 +6,7 @@ import { myProposals } from "@/api/proposal";
 import { myReviews } from "@/api/review";
 import AppDialog from "@/components/AppDialog.vue";
 import GlassCard from "@/components/GlassCard.vue";
+import GlassNavBar from "@/components/GlassNavBar.vue";
 import TabBar from "@/components/TabBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { useUserStore } from "@/store/user";
@@ -80,7 +81,9 @@ const avatarText = (): string => {
 </script>
 
 <template>
-  <view class="app-fixed">
+  <view class="app-fixed app-fixed--topnav">
+    <GlassNavBar title="个人中心" />
+
     <view class="app-fixed__scroll app-fixed__scroll--tabbed">
       <GlassCard class="profile">
         <view class="avatar">{{ avatarText() }}</view>

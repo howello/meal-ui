@@ -3,6 +3,7 @@ import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { cancelOrder, myOrders } from "@/api/order";
 import AppDialog from "@/components/AppDialog.vue";
+import GlassNavBar from "@/components/GlassNavBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
@@ -86,6 +87,8 @@ function doCancel(order: Order) {
 
 <template>
   <view class="page-body">
+    <GlassNavBar title="我的订单" />
+
     <view class="filters">
       <view
         v-for="item in FILTERS"

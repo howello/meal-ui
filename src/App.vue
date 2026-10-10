@@ -74,6 +74,16 @@ page {
   padding: 24rpx 24rpx 200rpx;
 }
 
+/* 自定义玻璃导航栏（GlassNavBar）固定顶部，页面内容整体下移让位：
+   状态栏高度 + 88rpx 导航栏高度。
+   用原生导航栏改成自定义栏的页面走这里；厨师端 waiting/cooking 自带 header，不用。 */
+.page-body {
+  padding-top: calc(24rpx + var(--status-bar-height) + 88rpx);
+}
+.app-fixed--topnav {
+  padding-top: calc(var(--status-bar-height) + 88rpx);
+}
+
 .card {
   border-radius: 24rpx;
   padding: 24rpx;

@@ -4,6 +4,7 @@ import { ref } from "vue";
 import AppDialog from "@/components/AppDialog.vue";
 import GlassButton from "@/components/GlassButton.vue";
 import GlassCard from "@/components/GlassCard.vue";
+import GlassNavBar from "@/components/GlassNavBar.vue";
 import TabBar from "@/components/TabBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { useCartStore } from "@/store/cart";
@@ -155,13 +156,12 @@ function goConfirm() {
 </script>
 
 <template>
-  <view class="app-fixed">
-    <view class="app-fixed__head">
-      <view class="row-between head">
-        <text class="section-title">购物车</text>
-        <text v-if="!cartStore.isEmpty" class="head__clear" @click="clearAll">清空</text>
-      </view>
-    </view>
+  <view class="app-fixed app-fixed--topnav">
+    <GlassNavBar title="购物车">
+      <template #right>
+        <text v-if="!cartStore.isEmpty" class="nav-clear" @click="clearAll">清空</text>
+      </template>
+    </GlassNavBar>
 
     <view class="app-fixed__scroll cart-scroll">
       <template v-if="!cartStore.isEmpty">
@@ -242,12 +242,8 @@ function goConfirm() {
 </template>
 
 <style lang="scss" scoped>
-.head {
-  margin-bottom: 20rpx;
-}
-
-/* 「清空」：负外边距抵消内边距，视觉位置不变，点击区域放大到 68rpx 高 */
-.head__clear {
+/* 导航栏右侧「清空」：负外边距抵消内边距，视觉位置不变，点击区域放大到 68rpx 高 */
+.nav-clear {
   display: inline-block;
   padding: 18rpx 24rpx;
   margin: -18rpx -24rpx -18rpx 0;

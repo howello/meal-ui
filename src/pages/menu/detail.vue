@@ -2,6 +2,7 @@
 import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { getDish } from "@/api/dish";
+import GlassNavBar from "@/components/GlassNavBar.vue";
 import { useCartStore } from "@/store/cart";
 import type { Dish, Ingredient } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
@@ -75,6 +76,8 @@ function addToCart() {
 </script>
 
 <template>
+  <GlassNavBar title="菜品详情" />
+
   <view v-if="dish" class="detail">
     <view class="hero">
       <image v-if="dish.cover" class="hero__img" :src="dish.cover" mode="aspectFill" />
@@ -153,6 +156,8 @@ function addToCart() {
 <style lang="scss" scoped>
 .detail {
   padding-bottom: 180rpx;
+  /* 自定义玻璃导航栏固定顶部，内容整体下移让位（状态栏 + 88rpx 导航栏） */
+  padding-top: calc(var(--status-bar-height) + 88rpx);
 }
 
 .hero {

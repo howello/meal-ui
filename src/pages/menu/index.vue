@@ -2,6 +2,7 @@
 import { onReady, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, getCurrentInstance, nextTick, ref } from "vue";
 import { listCategory, listDish } from "@/api/dish";
+import GlassNavBar from "@/components/GlassNavBar.vue";
 import TabBar from "@/components/TabBar.vue";
 import { useCartStore } from "@/store/cart";
 import { useUserStore } from "@/store/user";
@@ -416,7 +417,9 @@ async function pickCategory(categoryId: number) {
 </script>
 
 <template>
-  <view class="app-fixed">
+  <view class="app-fixed app-fixed--topnav">
+    <GlassNavBar title="今天吃什么" />
+
     <view class="app-fixed__head">
       <view class="search glass">
         <input

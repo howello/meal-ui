@@ -5,6 +5,7 @@ import { listCategory } from "@/api/dish";
 import { aiGenerateDish } from "@/api/ai";
 import { submitProposal } from "@/api/proposal";
 import { uploadImage } from "@/api/upload";
+import GlassNavBar from "@/components/GlassNavBar.vue";
 import type { Category } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 
@@ -153,6 +154,8 @@ async function submit() {
 
 <template>
   <view class="page-body">
+    <GlassNavBar title="提交新菜" />
+
     <view class="note">想吃什么就提，管理员审核通过后就会出现在点餐区</view>
 
     <view class="field">

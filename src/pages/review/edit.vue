@@ -4,6 +4,7 @@ import { computed, ref } from "vue";
 import { orderDetail } from "@/api/order";
 import { submitReview } from "@/api/review";
 import { uploadImage } from "@/api/upload";
+import GlassNavBar from "@/components/GlassNavBar.vue";
 import type { Order } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 
@@ -105,6 +106,8 @@ async function submit() {
 
 <template>
   <view class="page-body">
+    <GlassNavBar title="写评价" />
+
     <view v-if="order" class="card">
       <view class="row-between">
         <text class="head__no">{{ order.orderNo }}</text>

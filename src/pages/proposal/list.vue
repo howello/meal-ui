@@ -2,6 +2,7 @@
 import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { myProposals } from "@/api/proposal";
+import GlassNavBar from "@/components/GlassNavBar.vue";
 import { PROPOSAL_STATUS_TEXT, type Proposal } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 
@@ -52,6 +53,8 @@ function hint(proposal: Proposal): string {
 
 <template>
   <view class="page-body">
+    <GlassNavBar title="我的提案" />
+
     <view v-for="proposal in proposals" :key="proposal.proposalId" class="card">
       <view class="row-between">
         <text class="name">{{ proposal.name }}</text>

@@ -93,6 +93,7 @@ function waitText(order: Order): string {
       :scroll-y="true"
       :refresher-enabled="true"
       :refresher-triggered="refreshing"
+      refresher-background="transparent"
       @refresherrefresh="onRefresh"
     >
       <view v-for="order in orders" :key="order.orderId" class="card order">

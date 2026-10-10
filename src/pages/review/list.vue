@@ -2,6 +2,7 @@
 import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { myReviews } from "@/api/review";
+import GlassNavBar from "@/components/GlassNavBar.vue";
 import type { Review } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 
@@ -45,6 +46,8 @@ function imageList(review: Review): string[] {
 
 <template>
   <view class="page-body">
+    <GlassNavBar title="我的评价" />
+
     <view v-for="review in reviews" :key="review.reviewId" class="card">
       <text class="dish-names">{{ review.dishNames || "菜品已删除" }}</text>
       <view class="row-between">
