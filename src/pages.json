@@ -61,6 +61,13 @@
       }
     },
     {
+      "path": "pages/kitchen/prep",
+      "style": {
+        "navigationBarTitleText": "备菜清单",
+        "backgroundColor": "#EEF1FF"
+      }
+    },
+    {
       "path": "pages/order/confirm",
       "style": {
         "navigationBarTitleText": "确认下单"

@@ -124,6 +124,11 @@ function openDish(item: OrderItem) {
   uni.navigateTo({ url: `/pages/menu/detail?dishId=${item.dishId}&readonly=1` });
 }
 
+/** 进入该订单的备菜清单页：汇总用料、可勾选已买完 */
+function goPrep(order: Order) {
+  uni.navigateTo({ url: `/pages/kitchen/prep?orderId=${order.orderId}` });
+}
+
 /** 已制作时长由后端计算返回，前端不自己计时 */
 function cookText(order: Order): string {
   const minutes = order.cookMinutes ?? 0;
@@ -174,7 +179,10 @@ function cookText(order: Order): string {
 
         <view class="note">整体备注：{{ order.orderRemark || "无" }}</view>
 
-        <view class="order__progress">已备 {{ doneCount(order) }}/{{ totalCount(order) }}</view>
+        <view class="order__actions">
+          <view class="order__progress">已备 {{ doneCount(order) }}/{{ totalCount(order) }}</view>
+          <view class="prep-btn" @click="goPrep(order)">一键备菜</view>
+        </view>
       </view>
 
       <view v-if="!orders.length" class="empty">{{ loading ? "加载中…" : "暂时没有制作中的订单" }}</view>
@@ -313,10 +321,30 @@ function cookText(order: Order): string {
   border-color: $meal-success;
 }
 
-.order__progress {
+.order__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
   margin-top: 20rpx;
+}
+
+.order__progress {
   font-size: 22rpx;
   color: $lg-ink-2;
-  text-align: right;
+}
+
+/* 一键备菜：次级按钮（玻璃底 + 主题色描边），与整单完成的主操作区分 */
+.prep-btn {
+  flex: 0 0 auto;
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 32rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: $lg-accent;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1rpx solid rgba(255, 107, 53, 0.4);
 }
 </style>
