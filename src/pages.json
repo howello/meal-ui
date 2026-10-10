@@ -107,6 +107,12 @@
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "家里吃什么",
     "navigationBarBackgroundColor": "#F1F4FF",
-    "backgroundColor": "#EEF1FF"
+    "backgroundColor": "#EEF1FF",
+    /* 页面转场动画（仅 App 端生效；H5/小程序忽略）。
+       底部 tab 走 reLaunch，不受这里影响。 */
+    "app-plus": {
+      "animationType": "fade-in",
+      "animationDuration": 250
+    }
   }
 }
