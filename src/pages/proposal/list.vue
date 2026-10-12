@@ -47,7 +47,7 @@ function hint(proposal: Proposal): string {
   if (proposal.status === "2") {
     return "这条提案被驳回了，可以换个思路再提";
   }
-  return "管理员还没看，通过后会出现在点餐区";
+  return "AI 正在自动审核，通过后会自动上架";
 }
 </script>
 
