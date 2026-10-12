@@ -9,5 +9,7 @@
     "lib": ["esnext", "dom"],
     "types": ["@dcloudio/types"]
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+  /* devTools 是第三方 JS 调试插件（含大量 .vue 的 JS 产物），不参与本项目的类型检查 */
+  "exclude": ["src/devTools/**"]
 }

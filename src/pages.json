@@ -122,6 +122,32 @@
       }
     }
   ],
+  /* UniDevTools 调试页（src/devTools）：注册为分包，App/H5/小程序自动兼容。
+     App 端调试弹窗是原生浮层，需要这些 style 保证「无动画、无导航栏、不弹回」。 */
+  "subPackages": [
+    {
+      "root": "devTools/page",
+      "name": "devToolsPage",
+      "pages": [
+        {
+          "path": "index",
+          "style": {
+            "navigationStyle": "custom"
+            // #ifdef APP-PLUS
+            ,
+            "softinputMode": "adjustResize",
+            "backgroundColor": "transparent",
+            "animationDuration": 1,
+            "animationType": "none",
+            "popGesture": "none",
+            "bounce": "none",
+            "titleNView": false
+            // #endif
+          }
+        }
+      ]
+    }
+  ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "家里吃什么",

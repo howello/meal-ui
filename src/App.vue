@@ -1,16 +1,24 @@
 <script setup lang="ts">
-import { onLaunch } from "@dcloudio/uni-app";
+import { onError, onLaunch } from "@dcloudio/uni-app";
 import { useCartStore } from "@/store/cart";
 import { useThemeStore } from "@/store/theme";
 import { useUserStore } from "@/store/user";
+import { devError, devLog } from "@/utils/devtools";
 import { useOrderNotifierAppLifecycle } from "@/utils/notify";
 
 useOrderNotifierAppLifecycle();
 
-onLaunch(() => {
+onLaunch((options) => {
   useThemeStore().init();
   useUserStore().restore();
   useCartStore().restore();
+  // 调试工具：记录一次启动日志（Logs 页可查）
+  devLog("appOnLaunch>" + JSON.stringify(options));
+});
+
+// 调试工具：全局错误拦截（Error 页可查）
+onError((err) => {
+  devError(err, "at App.vue onError", "oe");
 });
 </script>
 

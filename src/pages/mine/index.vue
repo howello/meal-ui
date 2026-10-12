@@ -11,6 +11,7 @@ import TabBar from "@/components/TabBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { useThemeStore, type ThemeMode } from "@/store/theme";
 import { useUserStore } from "@/store/user";
+import { showDevBubble } from "@/utils/devtools";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const userStore = useUserStore();
@@ -109,6 +110,28 @@ const avatarText = (): string => {
   const name = userStore.nickName;
   return name ? name.slice(0, 1) : "我";
 };
+
+/* ---- 调试入口：头像连点 5 次，显示调试悬浮气泡（再点气泡才打开调试面板） ---- */
+/** 已累计的连击次数 */
+let avatarTapCount = 0;
+/** 连击清零定时器：超过 1.5s 没再点就重新计数 */
+let avatarTapTimer: ReturnType<typeof setTimeout> | null = null;
+
+function onAvatarTap() {
+  avatarTapCount += 1;
+  if (avatarTapTimer) {
+    clearTimeout(avatarTapTimer);
+    avatarTapTimer = null;
+  }
+  if (avatarTapCount >= 5) {
+    avatarTapCount = 0;
+    showDevBubble();
+    return;
+  }
+  avatarTapTimer = setTimeout(() => {
+    avatarTapCount = 0;
+  }, 1500);
+}
 </script>
 
 <template>
@@ -117,7 +140,7 @@ const avatarText = (): string => {
 
     <view class="app-fixed__scroll app-fixed__scroll--tabbed">
       <GlassCard class="profile">
-        <view class="avatar">{{ avatarText() }}</view>
+        <view class="avatar" @click="onAvatarTap">{{ avatarText() }}</view>
         <view class="profile__main">
           <view class="profile__name-row">
             <text class="profile__name">{{ userStore.nickName || "未登录" }}</text>
