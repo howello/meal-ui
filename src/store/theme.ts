@@ -110,6 +110,27 @@ export const useThemeStore = defineStore("theme", {
     },
     applyResolved() {
       this.isDark = resolveDark(this.mode, this.systemDark);
+      this.syncNativeStyle();
+    },
+    /**
+     * 同步原生界面样式（仅 App 端有效）。
+     *
+     * App 端每个页面是独立 webview，切页时新 webview 的首帧背景由原生窗口样式决定；
+     * 只靠页面根节点的 .theme-dark 类来不及（要等 Vue 挂载），会先闪一下浅色底。
+     * 这里让原生 UI 样式与解析后的主题一致，配合 manifest 的 darkmode + theme.json，
+     * 原生窗口背景就会随主题切换：
+     * - 「跟随系统」交给系统自动切换（auto）；
+     * - 手动浅/深与「按时间」强制成解析后的明/暗。
+     */
+    syncNativeStyle() {
+      // #ifdef APP-PLUS
+      const plusApi = (globalThis as unknown as {
+        plus?: { nativeUI?: { setUIStyle?: (style: "light" | "dark" | "auto") => void } };
+      }).plus;
+      if (plusApi?.nativeUI?.setUIStyle) {
+        plusApi.nativeUI.setUIStyle(this.mode === "system" ? "auto" : this.isDark ? "dark" : "light");
+      }
+      // #endif
     },
     bindSystemListener() {
       // H5：监听系统配色变化

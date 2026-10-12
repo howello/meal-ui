@@ -11,7 +11,7 @@
       "style": {
         "navigationBarTitleText": "登录",
         "navigationStyle": "custom",
-        "backgroundColor": "#EEF1FF"
+        "backgroundColor": "@bgColor"
       }
     },
     {
@@ -19,8 +19,8 @@
       "style": {
         "navigationBarTitleText": "今天吃什么",
         "navigationStyle": "custom",
-        "navigationBarBackgroundColor": "#F1F4FF",
-        "backgroundColor": "#EEF1FF"
+        "navigationBarBackgroundColor": "@navBgColor",
+        "backgroundColor": "@bgColor"
       }
     },
     {
@@ -35,8 +35,8 @@
       "style": {
         "navigationBarTitleText": "购物车",
         "navigationStyle": "custom",
-        "navigationBarBackgroundColor": "#F1F4FF",
-        "backgroundColor": "#EEF1FF"
+        "navigationBarBackgroundColor": "@navBgColor",
+        "backgroundColor": "@bgColor"
       }
     },
     {
@@ -44,8 +44,8 @@
       "style": {
         "navigationBarTitleText": "个人中心",
         "navigationStyle": "custom",
-        "navigationBarBackgroundColor": "#F1F4FF",
-        "backgroundColor": "#EEF1FF"
+        "navigationBarBackgroundColor": "@navBgColor",
+        "backgroundColor": "@bgColor"
       }
     },
     {
@@ -53,7 +53,7 @@
       "style": {
         "navigationBarTitleText": "待接单",
         "navigationStyle": "custom",
-        "backgroundColor": "#EEF1FF"
+        "backgroundColor": "@bgColor"
       }
     },
     {
@@ -61,7 +61,7 @@
       "style": {
         "navigationBarTitleText": "制作中",
         "navigationStyle": "custom",
-        "backgroundColor": "#EEF1FF"
+        "backgroundColor": "@bgColor"
       }
     },
     {
@@ -69,7 +69,7 @@
       "style": {
         "navigationBarTitleText": "备菜清单",
         "navigationStyle": "custom",
-        "backgroundColor": "#EEF1FF"
+        "backgroundColor": "@bgColor"
       }
     },
     {
@@ -156,10 +156,10 @@
     }
   ],
   "globalStyle": {
-    "navigationBarTextStyle": "black",
+    "navigationBarTextStyle": "@navTxtStyle",
     "navigationBarTitleText": "家里吃什么",
-    "navigationBarBackgroundColor": "#F1F4FF",
-    "backgroundColor": "#EEF1FF",
+    "navigationBarBackgroundColor": "@navBgColor",
+    "backgroundColor": "@bgColor",
     /* 页面转场动画（仅 App 端生效；H5/小程序忽略）。
        底部 tab 走 reLaunch，不受这里影响。 */
     "app-plus": {

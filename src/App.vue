@@ -47,6 +47,21 @@ page {
   @include lg-theme-dark;
   @include lg-ambient-bg-dark;
 }
+
+/* App 端：让 webview 的 page（= body）背景本身也随主题。
+   App 每个页面是独立 webview，切页时新 webview 的首帧背景来自 page，
+   而深色只挂在页面根节点上、要等 Vue 挂载才生效，于是会先闪一下浅色底。
+   配合 manifest 的 darkmode + theme.json 与 plus.nativeUI.setUIStyle，
+   webview 的 prefers-color-scheme 会跟随应用主题，这里让它首帧就是深色。 */
+/* #ifdef APP-PLUS */
+@media (prefers-color-scheme: dark) {
+  page {
+    @include lg-theme-dark;
+    @include lg-ambient-bg-dark;
+    color: $lg-ink;
+  }
+}
+/* #endif */
 /* 非固定布局的页面根（page-body / login / 多根页包装）在深色下撑满整屏，
    避免底部露出浅色 page 底。.app-fixed 已是固定铺满，不加。 */
 .page-body.theme-dark,

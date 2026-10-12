@@ -12,6 +12,10 @@
         "nvueCompiler" : "uni-app",
         "nvueStyleCompiler" : "uni-app",
         "compilerVersion" : 3,
+        /* 开启 DarkMode：pages.json 里用 @bgColor 等变量引用 theme.json 的颜色。
+           原生窗口背景会随系统/手动 UI 样式切换，避免 App 端切页先露出浅色底。 */
+        "darkmode" : true,
+        "themeLocation" : "theme.json",
         "splashscreen" : {
             "alwaysShowBeforeRender" : true,
             "waiting" : true,
@@ -89,6 +93,9 @@
     },
     "h5" : {
         "title" : "家里吃什么",
+        /* 不启用 h5 的 darkmode（H5 深色走 CSS 主题），但需声明 themeLocation，
+           否则 pages.json 里的 @变量在 H5 编译期无法解析。 */
+        "themeLocation" : "theme.json",
         "router" : {
             "mode" : "hash",
             "base" : "/"
