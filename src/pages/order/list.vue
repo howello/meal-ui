@@ -3,6 +3,7 @@ import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { cancelOrder, myOrders } from "@/api/order";
 import AppDialog from "@/components/AppDialog.vue";
+import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
@@ -109,7 +110,7 @@ function doCancel(order: Order) {
 
       <view class="thumbs">
         <view v-for="item in order.items || []" :key="item.itemId" class="thumb">
-          <image v-if="item.dishCover" class="thumb__img" :src="item.dishCover" mode="aspectFill" />
+          <CachedImage v-if="item.dishCover" class="thumb__img" :src="item.dishCover" mode="aspectFill" />
           <text v-else class="thumb__text">{{ item.dishName }}</text>
         </view>
       </view>

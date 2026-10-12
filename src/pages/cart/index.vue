@@ -2,6 +2,7 @@
 import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import AppDialog from "@/components/AppDialog.vue";
+import CachedImage from "@/components/CachedImage.vue";
 import GlassButton from "@/components/GlassButton.vue";
 import GlassCard from "@/components/GlassCard.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
@@ -166,7 +167,7 @@ function goConfirm() {
     <view class="app-fixed__scroll cart-scroll">
       <template v-if="!cartStore.isEmpty">
         <GlassCard v-for="line in cartStore.lines" :key="line.dishId" class="line">
-          <image v-if="line.dishCover" class="line__cover" :src="line.dishCover" mode="aspectFill" />
+          <CachedImage v-if="line.dishCover" class="line__cover" :src="line.dishCover" mode="aspectFill" />
           <view v-else class="line__cover line__cover--ph">{{ line.dishName }}</view>
           <view class="line__body">
             <view class="row-between">

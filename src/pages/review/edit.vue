@@ -4,6 +4,7 @@ import { computed, ref } from "vue";
 import { orderDetail } from "@/api/order";
 import { submitReview } from "@/api/review";
 import { uploadImage } from "@/api/upload";
+import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import type { Order } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
@@ -115,7 +116,7 @@ async function submit() {
       </view>
       <view class="head__items">
         <view v-for="item in order.items || []" :key="item.itemId" class="item">
-          <image v-if="item.dishCover" class="item__cover" :src="item.dishCover" mode="aspectFill" />
+          <CachedImage v-if="item.dishCover" class="item__cover" :src="item.dishCover" mode="aspectFill" />
           <view v-else class="item__cover item__cover--ph">{{ item.dishName }}</view>
           <view class="item__main">
             <text class="item__name">{{ item.dishName }}</text>

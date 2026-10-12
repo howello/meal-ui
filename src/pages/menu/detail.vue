@@ -2,6 +2,7 @@
 import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { getDish } from "@/api/dish";
+import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { useCartStore } from "@/store/cart";
 import type { Dish, Ingredient } from "@/types";
@@ -81,7 +82,7 @@ function addToCart() {
 
     <view v-if="dish" class="detail">
       <view class="hero">
-        <image v-if="dish.cover" class="hero__img" :src="dish.cover" mode="aspectFill" />
+        <CachedImage v-if="dish.cover" class="hero__img" :src="dish.cover" mode="aspectFill" />
         <view v-else class="hero__img hero__img--ph"></view>
         <view class="hero__mask">
           <text v-if="dish.categoryNames" class="hero__tag">{{ dish.categoryNames }}</text>

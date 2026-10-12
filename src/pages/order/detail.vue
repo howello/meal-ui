@@ -3,6 +3,7 @@ import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { cancelOrder, orderDetail } from "@/api/order";
 import AppDialog from "@/components/AppDialog.vue";
+import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
@@ -116,7 +117,7 @@ function goReview() {
 
       <view class="card">
         <view v-for="item in order.items || []" :key="item.itemId" class="item">
-          <image v-if="item.dishCover" class="item__cover" :src="item.dishCover" mode="aspectFill" />
+          <CachedImage v-if="item.dishCover" class="item__cover" :src="item.dishCover" mode="aspectFill" />
           <view v-else class="item__cover item__cover--ph">{{ item.dishName }}</view>
           <view class="item__main">
             <text class="item__name">{{ item.dishName }}</text>

@@ -2,6 +2,7 @@
 import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { myReviews } from "@/api/review";
+import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import type { Review } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
@@ -57,7 +58,7 @@ function imageList(review: Review): string[] {
       <view class="stars">{{ stars(review.score) }}</view>
       <text class="content">{{ review.content || "—" }}</text>
       <view v-if="imageList(review).length" class="images">
-        <image
+        <CachedImage
           v-for="(image, index) in imageList(review)"
           :key="index"
           class="images__item"

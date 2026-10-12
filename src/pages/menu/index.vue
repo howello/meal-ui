@@ -2,11 +2,13 @@
 import { onReady, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, getCurrentInstance, nextTick, ref } from "vue";
 import { listCategory, listDish } from "@/api/dish";
+import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import TabBar from "@/components/TabBar.vue";
 import { useCartStore } from "@/store/cart";
 import { useUserStore } from "@/store/user";
 import { svgIcon } from "@/utils/icons";
+import { preloadImages } from "@/utils/imageCache";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 import type { Category, Dish } from "@/types";
 
@@ -110,16 +112,22 @@ function writeMenuCache() {
   }
 }
 
+/** 后台预热菜品封面（仅 App 端有实际动作），让滚动到该菜品时图片已就绪 */
+function warmUpCovers() {
+  preloadImages(dishes.value.map((item) => item.cover).filter((cover): cover is string => !!cover));
+}
+
 /** 强制拉取分类与全量菜品，成功后刷新缓存并重新测量高亮 */
-async function refreshAll() {
+async function refreshAll(showSkeleton = false) {
   keyword.value = "";
-  await Promise.all([loadCategories(), loadDishes()]);
+  await Promise.all([loadCategories(), loadDishes(showSkeleton)]);
   writeMenuCache();
   menuInitialized = true;
   activeCategoryId.value = undefined;
   scrollTo.value = 0;
   scrolledTop = 0;
   scrollContentHeight = 0;
+  warmUpCovers();
   await nextTick();
   await measureAndHighlight();
 }
@@ -132,18 +140,19 @@ async function loadFromCacheOrNetwork() {
     categories.value = cached.categories;
     dishes.value = cached.dishes;
     menuInitialized = true;
+    warmUpCovers();
     await nextTick();
     await measureAndHighlight();
     return;
   }
-  await refreshAll();
+  await refreshAll(true);
 }
 
-/** 下拉刷新：强制重新拉取分类与菜品列表并覆盖缓存 */
+/** 下拉刷新：强制重新拉取分类与菜品列表并覆盖缓存（保留现有列表，不换骨架屏） */
 async function onRefresh() {
   refreshing.value = true;
   try {
-    await refreshAll();
+    await refreshAll(false);
   } finally {
     refreshing.value = false;
   }
@@ -166,8 +175,12 @@ async function loadCategories() {
   }
 }
 
-async function loadDishes() {
-  loading.value = true;
+/** 拉取菜品；showSkeleton 仅在「列表本来就空」的首屏/搜索场景置真，
+    下拉刷新时不换骨架屏，否则整个菜品流会被卸载重挂载、图片跟着闪一下 */
+async function loadDishes(showSkeleton = false) {
+  if (showSkeleton) {
+    loading.value = true;
+  }
   try {
     const res = await listDish({ keyword: keyword.value || undefined });
     dishes.value = res.rows;
@@ -215,7 +228,7 @@ const emptyText = computed(() =>
 );
 
 function onSearch() {
-  loadDishes();
+  loadDishes(true);
 }
 
 function tagList(dish: Dish): string[] {
@@ -499,7 +512,7 @@ async function pickCategory(categoryId: number) {
               class="dish glass"
               @click="openDish(dish)"
             >
-              <image v-if="dish.cover" class="dish__cover" :src="dish.cover" mode="aspectFill" lazy-load />
+              <CachedImage v-if="dish.cover" class="dish__cover" :src="dish.cover" mode="aspectFill" lazy-load />
               <view v-else class="dish__cover dish__cover--ph">{{ dish.name }}</view>
 
               <view class="dish__body">
