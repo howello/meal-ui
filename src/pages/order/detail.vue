@@ -6,12 +6,16 @@ import AppDialog from "@/components/AppDialog.vue";
 import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { confirm } from "@/composables/useDialog";
+import { useUserStore } from "@/store/user";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 
+const userStore = useUserStore();
 const orderId = ref(0);
 const order = ref<Order | null>(null);
 const loading = ref(true);
+/** 是否本人下的订单：厨师查看自己制作过的订单时，不显示点餐人的取消/评价操作 */
+const isMine = computed(() => !!order.value && order.value.userId === userStore.user?.userId);
 useOrderNotifierLifecycle();
 
 onLoad((options) => {
@@ -146,7 +150,7 @@ function goReview() {
         </view>
       </view>
 
-      <view class="actions">
+      <view v-if="isMine" class="actions">
         <view v-if="order.status === ORDER_STATUS.WAITING" class="actions__btn actions__btn--cancel" @click="doCancel">
           取消订单
         </view>

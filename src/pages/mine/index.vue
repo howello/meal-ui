@@ -49,6 +49,15 @@ const themeDetail = computed(() => {
 
 const stats = ref({ orders: 0, reviews: 0, proposals: 0 });
 
+/** 当前视角：厨师工作台侧看「制作过的订单 / 收到的评价」，点餐区侧看「自己点的 / 自己写的」 */
+const scope = computed(() => (userStore.tabMode === "kitchen" ? "chef" : ""));
+const isChefScope = computed(() => scope.value === "chef");
+const orderLabel = computed(() => (isChefScope.value ? "我制作的" : "我的订单"));
+const reviewLabel = computed(() => (isChefScope.value ? "收到的评价" : "我的评价"));
+
+/** 视图切换区是否有可展示项（厨师工作台/去点餐/家庭与成员），没有则整卡不渲染，避免点餐员看到空玻璃框 */
+const hasSwitchEntries = computed(() => userStore.canKitchen || userStore.isManager);
+
 onShow(async () => {
   if (!userStore.isLogin) {
     uni.reLaunch({ url: "/pages/login/index" });
@@ -70,8 +79,8 @@ onShow(async () => {
 async function loadStats() {
   try {
     const [orders, reviews, proposals] = await Promise.all([
-      myOrders({ pageNum: 1, pageSize: 1 }),
-      myReviews({ pageNum: 1, pageSize: 1 }),
+      myOrders({ pageNum: 1, pageSize: 1, scope: scope.value || undefined }),
+      myReviews({ pageNum: 1, pageSize: 1, scope: scope.value || undefined }),
       myProposals({ pageNum: 1, pageSize: 1 }),
     ]);
     stats.value = {
@@ -86,6 +95,16 @@ async function loadStats() {
 
 function go(url: string) {
   uni.navigateTo({ url });
+}
+
+/** 我的订单：厨师侧带上 scope=chef，看自己制作过的订单 */
+function goOrders() {
+  go(isChefScope.value ? "/pages/order/list?scope=chef" : "/pages/order/list");
+}
+
+/** 我的评价：厨师侧带上 scope=chef，看自己收到的评价 */
+function goReviews() {
+  go(isChefScope.value ? "/pages/review/list?scope=chef" : "/pages/review/list");
 }
 
 function toEaterView() {
@@ -151,13 +170,13 @@ function onAvatarTap() {
       </GlassCard>
 
       <view class="stats">
-        <GlassCard class="stat" @click="go('/pages/order/list')">
+        <GlassCard class="stat" @click="goOrders()">
           <text class="stat__value">{{ stats.orders }}</text>
-          <text class="tiny">我的订单</text>
+          <text class="tiny">{{ orderLabel }}</text>
         </GlassCard>
-        <GlassCard class="stat" @click="go('/pages/review/list')">
+        <GlassCard class="stat" @click="goReviews()">
           <text class="stat__value">{{ stats.reviews }}</text>
-          <text class="tiny">我的评价</text>
+          <text class="tiny">{{ reviewLabel }}</text>
         </GlassCard>
         <GlassCard class="stat" @click="go('/pages/proposal/list')">
           <text class="stat__value">{{ stats.proposals }}</text>
@@ -185,25 +204,13 @@ function onAvatarTap() {
       </GlassCard>
 
       <GlassCard :pad="false" class="menu">
-        <view class="menu__item" @click="go('/pages/order/list')">
-          <text class="menu__text">我的订单</text>
-          <text class="chev">›</text>
-        </view>
-        <view class="menu__item" @click="go('/pages/review/list')">
-          <text class="menu__text">我的评价</text>
-          <text class="chev">›</text>
-        </view>
-        <view class="menu__item" @click="go('/pages/proposal/list')">
-          <text class="menu__text">我的提案</text>
-          <text class="chev">›</text>
-        </view>
         <view class="menu__item" @click="go('/pages/proposal/edit')">
           <text class="menu__text">提交新菜</text>
           <text class="chev">›</text>
         </view>
       </GlassCard>
 
-      <GlassCard :pad="false" class="menu">
+      <GlassCard v-if="hasSwitchEntries" :pad="false" class="menu">
         <view v-if="userStore.canKitchen && userStore.tabMode === 'eater'" class="menu__item" @click="toKitchen">
           <text class="menu__text">厨师工作台</text>
           <text class="chev">›</text>
@@ -219,6 +226,10 @@ function onAvatarTap() {
       </GlassCard>
 
       <GlassCard :pad="false" class="menu">
+        <view class="menu__item" @click="go('/pages/about/index')">
+          <text class="menu__text">关于</text>
+          <text class="chev">›</text>
+        </view>
         <view class="menu__item" @click="doLogout">
           <text class="menu__text menu__text--danger">退出登录</text>
           <text class="chev">›</text>

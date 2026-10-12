@@ -12,8 +12,8 @@ export function submitOrder(data: { items: SubmitOrderItem[]; orderRemark?: stri
   return request<number>({ url: "/meal/order", method: "POST", data });
 }
 
-/** 我的订单 */
-export function myOrders(params: { status?: string; pageNum?: number; pageSize?: number }) {
+/** 我的订单；scope=chef 时返回当前厨师自己接单制作过的订单 */
+export function myOrders(params: { status?: string; pageNum?: number; pageSize?: number; scope?: string }) {
   return requestPage<Order>({ url: "/meal/order/my", data: params });
 }
 

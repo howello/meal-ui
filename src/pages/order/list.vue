@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
-import { ref } from "vue";
+import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
+import { computed, ref } from "vue";
 import { cancelOrder, myOrders } from "@/api/order";
 import AppDialog from "@/components/AppDialog.vue";
 import CachedImage from "@/components/CachedImage.vue";
@@ -19,7 +19,15 @@ const FILTERS = [
 const orders = ref<Order[]>([]);
 const activeStatus = ref("");
 const loading = ref(false);
+/** 视角：空为点餐人（自己点的），chef 为厨师（自己制作过的） */
+const scope = ref("");
+const isChefScope = computed(() => scope.value === "chef");
+const title = computed(() => (isChefScope.value ? "我制作的" : "我的订单"));
 useOrderNotifierLifecycle();
+
+onLoad((options) => {
+  scope.value = options?.scope === "chef" ? "chef" : "";
+});
 
 onShow(() => {
   loadOrders();
@@ -31,6 +39,7 @@ async function loadOrders() {
     const res = await myOrders({
       status: activeStatus.value || undefined,
       pageSize: 50,
+      scope: scope.value || undefined,
     });
     orders.value = res.rows;
   } catch (e) {
@@ -88,7 +97,7 @@ function doCancel(order: Order) {
 
 <template>
   <view class="page-body" :class="themeRootClass">
-    <GlassNavBar title="我的订单" />
+    <GlassNavBar :title="title" />
 
     <view class="filters">
       <view
@@ -117,7 +126,7 @@ function doCancel(order: Order) {
 
       <view class="row-between">
         <text class="tiny">{{ order.totalCount }} 份 · {{ (order.items || []).length }} 道菜</text>
-        <view class="order__actions">
+        <view v-if="!isChefScope" class="order__actions">
           <text
             v-if="order.status === ORDER_STATUS.WAITING"
             class="btn btn--cancel"

@@ -15,7 +15,7 @@ export function submitReview(data: SubmitReviewBody) {
   return requestVoid({ url: "/meal/review", method: "POST", data });
 }
 
-/** 我的评价 */
-export function myReviews(params?: { pageNum?: number; pageSize?: number }) {
+/** 我的评价；scope=chef 时返回当前厨师接单制作过的订单收到的评价 */
+export function myReviews(params?: { pageNum?: number; pageSize?: number; scope?: string }) {
   return requestPage<Review>({ url: "/meal/review/my", data: params });
 }
