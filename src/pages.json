@@ -120,6 +120,13 @@
         "navigationBarTitleText": "我的提案",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/about/index",
+      "style": {
+        "navigationBarTitleText": "关于",
+        "navigationStyle": "custom"
+      }
     }
   ],
   /* UniDevTools 调试页（src/devTools）：注册为分包，App/H5/小程序自动兼容。
