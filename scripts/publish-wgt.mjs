@@ -9,12 +9,14 @@
  *   npm run publish:wgt -- [--log "更新说明"] [--force] [--no-bump] [--name 1.1.0]
  *
  * 配置（优先级：命令行 > 环境变量 > scripts/publish.env.local）：
- *   MEAL_API_BASE        后端地址，默认 http://localhost:9527
- *   MEAL_TOKEN           管理端 token（推荐，最省事）
- *   MEAL_ADMIN_USER      管理端账号（配合 MEAL_ADMIN_PASSWORD；需关闭登录验证码）
- *   MEAL_ADMIN_PASSWORD  管理端密码
- *   HBUILDERX_CLI        HBuilderX CLI 路径，默认 D:\IDE\HBuilderX\cli.exe
- *   HBUILDERX_PROJECT    HBuilderX 里的项目名，默认 meal-ui
+ *   MEAL_API_BASE         后端地址，默认 http://localhost:9527
+ *   MEAL_PUBLISH_TOKEN    服务端发布令牌（**推荐**）：与「系统管理 > 参数设置」里的
+ *                         meal.app.publishToken 一致；配一次长期可用，不走登录、不受验证码影响
+ *   MEAL_ADMIN_USER       管理端账号（兜底路径，配合 MEAL_ADMIN_PASSWORD；需关闭登录验证码）
+ *   MEAL_ADMIN_PASSWORD   管理端密码
+ *   MEAL_TOKEN            管理端 token（兜底路径；会过期，不推荐）
+ *   HBUILDERX_CLI         HBuilderX CLI 路径，默认 D:\IDE\HBuilderX\cli.exe
+ *   HBUILDERX_PROJECT     HBuilderX 里的项目名，默认 meal-ui
  */
 import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -158,7 +160,8 @@ async function resolveToken(apiBase, cfg) {
   }
   if (!cfg.user || !cfg.password) {
     throw new Error(
-      "缺少管理端凭据：请设置 MEAL_TOKEN，或同时设置 MEAL_ADMIN_USER 与 MEAL_ADMIN_PASSWORD",
+      "缺少发布凭据：请设置 MEAL_PUBLISH_TOKEN（推荐，一次配置长期可用，不受验证码影响）；"
+        + "或设置 MEAL_ADMIN_USER 与 MEAL_ADMIN_PASSWORD（要求关闭登录验证码）",
     );
   }
   const res = await fetch(`${apiBase}/login`, {
@@ -205,6 +208,7 @@ async function main() {
   const hxProject = process.env.HBUILDERX_PROJECT || local.HBUILDERX_PROJECT || DEFAULT_PROJECT;
   const outputDir = process.env.MEAL_WGT_OUTPUT_DIR || local.MEAL_WGT_OUTPUT_DIR || DEFAULT_OUTPUT_DIR;
   const cfg = {
+    publishToken: process.env.MEAL_PUBLISH_TOKEN || local.MEAL_PUBLISH_TOKEN || "",
     token: process.env.MEAL_TOKEN || local.MEAL_TOKEN || "",
     user: process.env.MEAL_ADMIN_USER || local.MEAL_ADMIN_USER || "",
     password: process.env.MEAL_ADMIN_PASSWORD || local.MEAL_ADMIN_PASSWORD || "",
@@ -269,8 +273,36 @@ async function main() {
     }
     console.log(`wgt 产物：${wgtPath}（${(size / 1024 / 1024).toFixed(2)} MB）`);
 
-    const token = await resolveToken(apiBase, cfg);
     const buffer = await readFile(wgtPath);
+    const updateLog = options.log || `更新至 v${nextName}`;
+
+    // 首选：发布令牌一次请求完成「上传 wgt + 建版本记录」，不走登录、不受验证码/人机校验影响
+    if (cfg.publishToken) {
+      const form = new FormData();
+      form.append("file", new Blob([buffer]), wgtName);
+      form.append("versionName", nextName);
+      form.append("versionCode", String(nextCode));
+      form.append("updateLog", updateLog);
+      form.append("forceUpdate", options.force ? "1" : "0");
+      const res = await fetch(`${apiBase}/meal/app/version/publish`, {
+        method: "POST",
+        headers: { "X-Publish-Token": cfg.publishToken },
+        body: form,
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!body || body.code !== 200) {
+        throw new Error(`发布失败：${(body && body.msg) || `HTTP ${res.status}`}`);
+      }
+      const created = body.data || {};
+      console.log(`已上传 R2 并生成版本记录：${created.versionName} (${created.versionCode})`);
+      console.log(`  versionId=${created.versionId} wgtUrl=${created.wgtUrl}`);
+      console.log(`发布完成。${options.force ? "（强制更新）" : ""}`);
+      return;
+    }
+
+    // 兜底：管理端账号/令牌登录后分两步「上传 + 建记录」；开启验证码或人机校验后此路径不可用
+    console.log("未配置 MEAL_PUBLISH_TOKEN，改用管理端登录的兜底路径（开启验证码/人机校验后会失效）。");
+    const token = await resolveToken(apiBase, cfg);
     const form = new FormData();
     form.append("file", new Blob([buffer]), wgtName);
     const upload = await callApi(apiBase, token, "/meal/app/version/upload", {
@@ -280,7 +312,6 @@ async function main() {
     const uploaded = upload.data || {};
     console.log(`已上传 R2：${uploaded.url}`);
 
-    const updateLog = options.log || `更新至 v${nextName}`;
     const created = await callApi(apiBase, token, "/meal/app/version", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
