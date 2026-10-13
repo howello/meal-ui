@@ -65,6 +65,13 @@
       }
     },
     {
+      "path": "pages/mine/settings",
+      "style": {
+        "navigationBarTitleText": "资料设置",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/kitchen/waiting",
       "style": {
         "navigationBarTitleText": "待接单",

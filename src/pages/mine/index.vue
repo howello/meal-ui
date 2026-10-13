@@ -5,6 +5,7 @@ import { myOrders } from "@/api/order";
 import { myProposals } from "@/api/proposal";
 import { myReviews } from "@/api/review";
 import AppDialog from "@/components/AppDialog.vue";
+import CachedImage from "@/components/CachedImage.vue";
 import GlassCard from "@/components/GlassCard.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import TabBar from "@/components/TabBar.vue";
@@ -12,6 +13,7 @@ import { confirm } from "@/composables/useDialog";
 import { useThemeStore, type ThemeMode } from "@/store/theme";
 import { useUserStore } from "@/store/user";
 import { showDevBubble } from "@/utils/devtools";
+import { svgIcon } from "@/utils/icons";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const userStore = useUserStore();
@@ -19,6 +21,8 @@ useOrderNotifierLifecycle();
 
 /* ---- 外观（主题）设置 ---- */
 const themeStore = useThemeStore();
+/** 信息栏右侧「设置」按钮的图标（跟随主题明暗） */
+const settingsIcon = computed(() => svgIcon("settings", themeStore.isDark ? "#9aa0ab" : "#8b93a7"));
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: "light", label: "浅色" },
   { value: "dark", label: "深色" },
@@ -159,13 +163,24 @@ function onAvatarTap() {
 
     <view class="app-fixed__scroll app-fixed__scroll--tabbed">
       <GlassCard class="profile">
-        <view class="avatar" @click="onAvatarTap">{{ avatarText() }}</view>
+        <view class="avatar" @click="onAvatarTap">
+          <CachedImage
+            v-if="userStore.user?.avatar"
+            class="avatar__img"
+            :src="userStore.user?.avatar || ''"
+            mode="aspectFill"
+          />
+          <text v-else class="avatar__text">{{ avatarText() }}</text>
+        </view>
         <view class="profile__main">
           <view class="profile__name-row">
             <text class="profile__name">{{ userStore.nickName || "未登录" }}</text>
             <text v-for="label in userStore.roleLabels" :key="label" class="tag">{{ label }}</text>
           </view>
           <text class="tiny">家庭 · {{ userStore.deptName || "我的家庭" }} · {{ userStore.user?.userName || "" }}</text>
+        </view>
+        <view class="profile__setting" @click="go('/pages/mine/settings')">
+          <image class="profile__setting-ic" :src="settingsIcon" />
         </view>
       </GlassCard>
 
@@ -254,6 +269,7 @@ function onAvatarTap() {
   width: 104rpx;
   height: 104rpx;
   border-radius: 50%;
+  overflow: hidden;
   background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
   font-size: 40rpx;
@@ -264,8 +280,32 @@ function onAvatarTap() {
   box-shadow: 0 16rpx 34rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
+.avatar__img {
+  width: 100%;
+  height: 100%;
+}
+
 .profile__main {
   flex: 1;
+  min-width: 0;
+}
+
+/* 信息栏右侧「设置」入口：圆形玻璃按钮 */
+.profile__setting {
+  flex: 0 0 auto;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $lg-fill-2;
+  border: 1px solid $lg-border;
+}
+
+.profile__setting-ic {
+  width: 36rpx;
+  height: 36rpx;
 }
 
 .profile__name-row {

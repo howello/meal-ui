@@ -153,6 +153,12 @@ export interface UserInfo {
   dept?: { deptId?: number; deptName?: string };
   deptName?: string;
   avatar?: string;
+  /** 邮箱 */
+  email?: string;
+  /** 手机号 */
+  phonenumber?: string;
+  /** 性别（0 男 / 1 女 / 2 未知） */
+  sex?: string;
 }
 
 /** getInfo 返回 */
