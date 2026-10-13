@@ -219,9 +219,9 @@ function onAvatarTap() {
           <text class="menu__text">去点餐</text>
           <text class="chev">›</text>
         </view>
-        <view v-if="userStore.isManager" class="menu__item">
+        <view v-if="userStore.isManager" class="menu__item" @click="go('/pages/member/index')">
           <text class="menu__text">家庭与成员</text>
-          <text class="tiny">在管理端维护</text>
+          <text class="chev">›</text>
         </view>
       </GlassCard>
 

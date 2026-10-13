@@ -191,5 +191,28 @@ export const ROLE_CHEF = "meal_chef";
 /** 角色标识：家庭管理员 */
 export const ROLE_MANAGER = "meal_manager";
 
+/** 角色标识：点餐员（家庭成员默认角色） */
+export const ROLE_EATER = "meal_eater";
+
 /** 视图模式：点餐区 / 厨师工作台 */
 export type ViewMode = "eater" | "kitchen";
+
+/** 家庭成员（家庭与成员页） */
+export interface FamilyMember {
+  userId: number;
+  userName: string;
+  nickName: string;
+  phonenumber?: string;
+  deptId?: number;
+  /** 账号状态（0正常 1停用） */
+  status?: string;
+  /** 成员已分配的家庭角色 */
+  roles?: { roleId: number; roleKey: string; roleName: string }[];
+}
+
+/** 家庭角色（可分配项） */
+export interface FamilyRole {
+  roleId: number;
+  roleKey: string;
+  roleName: string;
+}

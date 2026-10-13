@@ -1,5 +1,5 @@
 import type { LoginInfo } from "@/types";
-import { requestRaw } from "@/utils/request";
+import { requestRaw, requestVoid } from "@/utils/request";
 
 export interface LoginBody {
   username: string;
@@ -39,4 +39,27 @@ export function getCaptcha() {
 /** 登出 */
 export function logout() {
   return requestRaw({ url: "/logout", method: "POST" });
+}
+
+/** 家庭注册参数：家庭代码即目标家庭的部门ID */
+export interface FamilyRegisterBody {
+  /** 家庭代码（家庭管理员提供） */
+  familyCode: string;
+  username: string;
+  password: string;
+  nickName: string;
+  phonenumber?: string;
+  code?: string;
+  uuid?: string;
+  turnstileToken?: string;
+}
+
+/**
+ * 家庭注册：用家庭代码加入已有家庭
+ *
+ * 与既有匿名注册 `/register` 相互独立，不受注册开关约束；成功后绑定该家庭并获得
+ * 默认「点餐员」角色，可直接登录。
+ */
+export function registerFamily(data: FamilyRegisterBody) {
+  return requestVoid({ url: "/register/family", method: "POST", data });
 }

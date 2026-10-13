@@ -15,6 +15,22 @@
       }
     },
     {
+      "path": "pages/register/index",
+      "style": {
+        "navigationBarTitleText": "注册",
+        "navigationStyle": "custom",
+        "backgroundColor": "@bgColor"
+      }
+    },
+    {
+      "path": "pages/member/index",
+      "style": {
+        "navigationBarTitleText": "家庭与成员",
+        "navigationStyle": "custom",
+        "backgroundColor": "@bgColor"
+      }
+    },
+    {
       "path": "pages/menu/index",
       "style": {
         "navigationBarTitleText": "今天吃什么",

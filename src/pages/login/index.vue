@@ -206,6 +206,11 @@ function goNext() {
     url: userStore.isChef ? "/pages/kitchen/waiting" : "/pages/menu/index",
   });
 }
+
+/** 去家庭注册页：用家庭管理员提供的家庭代码加入已有家庭 */
+function goRegister() {
+  uni.navigateTo({ url: "/pages/register/index" });
+}
 </script>
 
 <template>
@@ -251,6 +256,11 @@ function goNext() {
           <text class="tiny">记住密码</text>
         </view>
         <text class="tiny">忘记密码请联系家庭管理员</text>
+      </view>
+
+      <view class="login__register" @click="goRegister">
+        <text class="tiny">还没有账号？</text>
+        <text class="login__register-link">用家庭代码注册</text>
       </view>
     </template>
   </view>
@@ -361,6 +371,20 @@ function goNext() {
   align-items: center;
   justify-content: space-between;
   margin-top: 28rpx;
+}
+
+.login__register {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  margin-top: 24rpx;
+}
+
+.login__register-link {
+  font-size: 24rpx;
+  color: $lg-accent;
+  font-weight: 600;
 }
 
 .login__remember {
