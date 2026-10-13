@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import GlassCard from "@/components/GlassCard.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { getAppInfo, readWidgetVersion } from "@/utils/appInfo";
+import { checkAppUpdateManually } from "@/utils/update";
 
 const info = reactive(getAppInfo());
+/** 手动检查更新进行中：防重复点击，同时驱动按钮文案 */
+const checking = ref(false);
 
 // App 端优先显示当前运行的 wgt 资源版本：热更新重启后「关于」页应反映新版本号
 onMounted(() => {
@@ -15,6 +18,19 @@ onMounted(() => {
     }
   });
 });
+
+/** 手动检查更新（仅 App 端展示入口） */
+async function onCheckUpdate(): Promise<void> {
+  if (checking.value) {
+    return;
+  }
+  checking.value = true;
+  try {
+    await checkAppUpdateManually();
+  } finally {
+    checking.value = false;
+  }
+}
 
 /** 信息行：标签 + 值 */
 const rows = computed(() => [
@@ -39,6 +55,11 @@ const year = new Date().getFullYear();
       <text class="hero__name">{{ info.name }}</text>
       <text class="hero__desc">{{ info.description }}</text>
       <view class="hero__ver">v{{ info.version }}</view>
+      <!-- #ifdef APP-PLUS -->
+      <view class="hero__check" :class="{ 'hero__check--busy': checking }" @click="onCheckUpdate">
+        {{ checking ? "正在检查更新…" : "检查更新" }}
+      </view>
+      <!-- #endif -->
     </GlassCard>
 
     <GlassCard :pad="false" class="info">
@@ -96,6 +117,22 @@ const year = new Date().getFullYear();
   color: $lg-accent;
   background: $lg-accent-soft;
   border: 1px solid $lg-accent-border;
+}
+
+/* 手动检查更新：仅 App 端渲染（模板里用 #ifdef APP-PLUS 控制） */
+.hero__check {
+  margin-top: 28rpx;
+  padding: 12rpx 44rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: $lg-accent;
+  background: $lg-accent-soft;
+  border: 1px solid $lg-accent-border;
+}
+
+.hero__check--busy {
+  opacity: 0.6;
 }
 
 /* 分组信息：一张玻璃卡内多行，行间用细分隔线 */

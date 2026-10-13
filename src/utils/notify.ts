@@ -80,8 +80,10 @@ function showNotifications(notifications: OrderNotification[]): void {
 
   // #ifdef APP-PLUS
   try {
-    const plus = (window as unknown as { plus?: any }).plus;
-    if (typeof plus?.push?.createMessage === "function") {
+    // 注意：App 逻辑层跑在 app-service JS 引擎里，没有 DOM/window，
+    // 5+ 能力必须用裸 plus（从 window 上取 plus 会拿不到，异常还会被下面的 catch 吞掉，
+    // 结果是系统通知永远发不出、静默回落成应用内弹窗）。
+    if (typeof plus !== "undefined" && plus.push && typeof plus.push.createMessage === "function") {
       notifications.forEach((item) => {
         plus.push.createMessage(item.content, JSON.stringify({ orderId: item.orderId, type: item.type }), {
           title: item.title,

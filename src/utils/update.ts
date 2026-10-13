@@ -5,6 +5,8 @@ import { readWidgetVersion } from "@/utils/appInfo";
 let started = false;
 /** 更新流程进行中，避免重复弹窗与重复下载 */
 let updating = false;
+/** 手动检查进行中，避免重复发起检测 */
+let checking = false;
 
 /** 延迟指定毫秒 */
 function delay(ms: number): Promise<void> {
@@ -67,9 +69,9 @@ function installWgt(tempFilePath: string): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     // #ifdef APP-PLUS
     try {
-      const plusObj = (window as unknown as { plus?: any }).plus;
-      if (plusObj?.runtime?.install) {
-        plusObj.runtime.install(
+      // 注意：App 逻辑层没有 window，5+ 能力必须用裸 plus
+      if (typeof plus !== "undefined" && plus.runtime && plus.runtime.install) {
+        plus.runtime.install(
           tempFilePath,
           { force: false },
           () => {
@@ -77,7 +79,7 @@ function installWgt(tempFilePath: string): Promise<boolean> {
             uni.showToast({ title: "更新完成，正在重启", icon: "none" });
             setTimeout(() => {
               try {
-                plusObj.runtime.restart();
+                plus.runtime.restart();
               } catch (e) {
                 // 重启失败时保留已安装资源，下次启动即生效
               }
@@ -165,10 +167,39 @@ async function runUpdate(info: AppUpdateInfo): Promise<void> {
   }
 }
 
+/** 检测结果：failed 表示检测过程本身失败（读不到版本 / 请求异常） */
+type CheckOutcome =
+  | { kind: "update"; info: AppUpdateInfo }
+  | { kind: "latest" }
+  | { kind: "failed"; reason: string };
+
+/**
+ * 读当前 wgt 版本 + 调检测接口
+ *
+ * 只做检测、不弹任何 UI：自动入口与手动入口共用这一份逻辑。
+ */
+async function fetchUpdate(): Promise<CheckOutcome> {
+  const current = await readWidgetVersion();
+  if (!current) {
+    return { kind: "failed", reason: "读不到当前应用版本，请确认是 App 端正式包" };
+  }
+  try {
+    const info = await checkAppUpdate(current.versionName, current.versionCode);
+    if (info && info.update && info.wgtUrl) {
+      return { kind: "update", info };
+    }
+    return { kind: "latest" };
+  } catch (e) {
+    const reason = e instanceof Error && e.message ? e.message : "网络异常";
+    return { kind: "failed", reason };
+  }
+}
+
 /**
  * App 启动时检查并执行 wgt 热更新
  *
- * 仅 App 平台生效；检测接口请求失败时静默跳过，不阻塞启动。整包（apk/ipa）升级不在范围内。
+ * 仅 App 平台生效；每次启动只跑一次，检测失败**静默跳过**、不阻塞启动。
+ * 整包（apk/ipa）升级不在范围内。
  */
 export async function checkAndUpdateApp(): Promise<void> {
   // #ifdef APP-PLUS
@@ -176,19 +207,47 @@ export async function checkAndUpdateApp(): Promise<void> {
     return;
   }
   started = true;
-  const current = await readWidgetVersion();
-  if (!current) {
+  const outcome = await fetchUpdate();
+  if (outcome.kind !== "update") {
+    // 启动检测保持静默：无更新或检测失败都不打扰用户
     return;
   }
-  let info: AppUpdateInfo | null = null;
+  await runUpdate(outcome.info);
+  // #endif
+}
+
+/**
+ * 手动检查更新（「关于」页的「检查更新」按钮）
+ *
+ * 与启动检测共用检测与更新流程，区别只在反馈：进行中给提示、无新版给提示、失败给可读原因。
+ * 可重复触发；进行中重复点击会被忽略。非 App 平台为空实现。
+ */
+export async function checkAppUpdateManually(): Promise<void> {
+  // #ifdef APP-PLUS
+  if (checking) {
+    return;
+  }
+  checking = true;
+  uni.showLoading({ title: "正在检查更新…", mask: true });
   try {
-    info = await checkAppUpdate(current.versionName, current.versionCode);
-  } catch (e) {
-    return;
+    const outcome = await fetchUpdate();
+    uni.hideLoading();
+    if (outcome.kind === "update") {
+      await runUpdate(outcome.info);
+      return;
+    }
+    if (outcome.kind === "latest") {
+      uni.showToast({ title: "已是最新版本", icon: "none" });
+      return;
+    }
+    uni.showModal({
+      title: "检查更新失败",
+      content: outcome.reason,
+      showCancel: false,
+      confirmText: "知道了",
+    });
+  } finally {
+    checking = false;
   }
-  if (!info || !info.update || !info.wgtUrl) {
-    return;
-  }
-  await runUpdate(info);
   // #endif
 }

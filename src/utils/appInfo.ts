@@ -78,9 +78,15 @@ export function readWidgetVersion(): Promise<WidgetVersion | null> {
   return new Promise<WidgetVersion | null>((resolve) => {
     // #ifdef APP-PLUS
     try {
-      const plusObj = (window as unknown as { plus?: any }).plus;
-      if (plusObj?.runtime?.getProperty) {
-        plusObj.runtime.getProperty(plusObj.runtime.appid, (widgetInfo: any) => {
+      // 注意：App 逻辑层跑在 app-service JS 引擎里，没有 DOM/window，
+      // 5+ 能力必须用裸 plus（从 window 上取 plus 会拿不到，异常还会被下面的 catch 吞掉）。
+      if (typeof plus !== "undefined" && plus.runtime && plus.runtime.getProperty) {
+        const appid = plus.runtime.appid;
+        if (!appid) {
+          resolve(null);
+          return;
+        }
+        plus.runtime.getProperty(appid, (widgetInfo) => {
           const versionName = String(widgetInfo?.version || "");
           if (!versionName) {
             resolve(null);
