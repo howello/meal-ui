@@ -9,7 +9,7 @@ const BUILD_INFO = {
   name: "吃了么",
   description: "家庭点餐端",
   versionName: "1.0.3",
-  versionCode: "103",
+  versionCode: "106",
   /** Android 包名 */
   androidPackage: "com.wyantao.meal",
   /** uni-app 应用标识（DCloud AppID） */
@@ -57,6 +57,45 @@ function readVersion(): string {
   }
   // #endif
   return BUILD_INFO.versionName;
+}
+
+/** 当前运行的 wgt 资源版本 */
+export interface WidgetVersion {
+  /** 版本名称（wgt 内 manifest 的 version.name） */
+  versionName: string;
+  /** 版本号（wgt 内 manifest 的 version.code） */
+  versionCode: number;
+}
+
+/**
+ * 读取当前运行的 wgt 资源版本（App 端）
+ *
+ * `plus.runtime.version` 是 apk/ipa 的版本号，wgt 热更新后不会变化；资源版本必须经
+ * `plus.runtime.getProperty` 读取，所以热更新检测与「关于」页都用这个函数。
+ * 非 App 端或读取失败时返回 null，由调用方回退到构建版本。
+ */
+export function readWidgetVersion(): Promise<WidgetVersion | null> {
+  return new Promise<WidgetVersion | null>((resolve) => {
+    // #ifdef APP-PLUS
+    try {
+      const plusObj = (window as unknown as { plus?: any }).plus;
+      if (plusObj?.runtime?.getProperty) {
+        plusObj.runtime.getProperty(plusObj.runtime.appid, (widgetInfo: any) => {
+          const versionName = String(widgetInfo?.version || "");
+          if (!versionName) {
+            resolve(null);
+            return;
+          }
+          resolve({ versionName, versionCode: Number(widgetInfo?.versionCode) || 0 });
+        });
+        return;
+      }
+    } catch (e) {
+      // 忽略：回退到构建版本
+    }
+    // #endif
+    resolve(null);
+  });
 }
 
 /** App 端（Android）取运行时确认的包名，其余端回退 manifest 里的包名 */

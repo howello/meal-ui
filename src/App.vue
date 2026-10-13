@@ -5,6 +5,7 @@ import { useThemeStore } from "@/store/theme";
 import { useUserStore } from "@/store/user";
 import { devError, devLog } from "@/utils/devtools";
 import { useOrderNotifierAppLifecycle } from "@/utils/notify";
+import { checkAndUpdateApp } from "@/utils/update";
 
 useOrderNotifierAppLifecycle();
 
@@ -14,6 +15,8 @@ onLaunch((options) => {
   useCartStore().restore();
   // 调试工具：记录一次启动日志（Logs 页可查）
   devLog("appOnLaunch>" + JSON.stringify(options));
+  // App 端启动检查 wgt 资源热更新（非 App 平台为空实现）
+  void checkAndUpdateApp();
 });
 
 // 调试工具：全局错误拦截（Error 页可查）

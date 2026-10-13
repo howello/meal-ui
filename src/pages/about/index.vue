@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted, reactive } from "vue";
 import GlassCard from "@/components/GlassCard.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
-import { getAppInfo } from "@/utils/appInfo";
+import { getAppInfo, readWidgetVersion } from "@/utils/appInfo";
 
-const info = getAppInfo();
+const info = reactive(getAppInfo());
+
+// App 端优先显示当前运行的 wgt 资源版本：热更新重启后「关于」页应反映新版本号
+onMounted(() => {
+  void readWidgetVersion().then((widget) => {
+    if (widget?.versionName) {
+      info.version = widget.versionName;
+      info.versionCode = String(widget.versionCode);
+    }
+  });
+});
 
 /** 信息行：标签 + 值 */
 const rows = computed(() => [
