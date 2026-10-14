@@ -2,8 +2,8 @@
     "name" : "吃了么",
     "appid" : "__UNI__091B4F4",
     "description" : "家庭点餐端",
-    "versionName" : "1.0.5",
-    "versionCode" : 108,
+    "versionName" : "1.0.6",
+    "versionCode" : 109,
     "transformPx" : false,
     /* 5+App特有相关 */
     "app-plus" : {
@@ -23,7 +23,9 @@
             "delay" : 0
         },
         /* 模块配置 */
-        "modules" : {},
+        "modules" : {
+            "Push" : {}
+        },
         /* 应用发布信息 */
         "distribute" : {
             /* android打包配置 */
@@ -46,7 +48,16 @@
                 "dSYMs" : false
             },
             /* SDK配置 */
-            "sdkConfigs" : {},
+            "sdkConfigs" : {
+                "push" : {
+                    "unipush" : {
+                        "offline" : false,
+                        "mi" : {},
+                        "oppo" : {},
+                        "vivo" : {}
+                    }
+                }
+            },
             "icons" : {
                 "android" : {
                     "hdpi" : "src/static/icons/72x72.png",
