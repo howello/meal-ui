@@ -7,7 +7,10 @@
     "dev:h5": "uni",
     "build:h5": "uni build",
     "build:app": "uni build -p app",
+    "build:wgt": "node scripts/build-wgt.mjs",
+    "verify:wgt": "node scripts/verify-wgt.mjs",
     "publish:wgt": "node scripts/publish-wgt.mjs",
+    "publish:wgt:ci": "node scripts/publish-wgt-ci.mjs",
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
