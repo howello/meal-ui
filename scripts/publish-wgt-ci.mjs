@@ -9,10 +9,14 @@
  * 若以仓库源码版本号为基准，本地 publish:wgt（走 HBuilderX 路径、自己也在自增）
  * 与本脚本会各自从同一个源码版本号出发，产生撞号或倒退，客户端将收不到更新。
  *
- * 递增结果只写入待发布 wgt 内的 manifest（由 build-wgt.mjs 完成），**不改仓库源码**。
+ * 递增结果写入待发布 wgt 内的 manifest（由 build-wgt.mjs 完成）；加 --write-back 时
+ * 额外把新版本号写回仓库源码（src/manifest.json 与 src/utils/appInfo.ts），
+ * 供 CI 在发布成功后提交推送，避免源码版本号长期落后于线上（否则本地 publish:wgt
+ * 会从落后的源码版本号自增，产生「发布记录生成但用户收不到」的无效发布）。
  *
  * 用法：
- *   node scripts/publish-wgt-ci.mjs [--log "更新说明"] [--force] [--dry-run]
+ *   node scripts/publish-wgt-ci.mjs [--log "更新说明"] [--force] [--dry-run] [--write-back]
+ *   node scripts/publish-wgt-ci.mjs --align-only   # 只把源码版本号对齐到线上最新，不打包不发布
  *
  * 配置（环境变量，CI 里来自 GitHub Secrets）：
  *   MEAL_API_BASE       后端地址，默认 https://admin.wyantao.com/api
@@ -20,7 +24,7 @@
  *   WGT_PATH            wgt 产物路径（可选；不填按构建产物的 appid 自动推断）
  *   WGT_DIR             wgt 输出目录（可选；默认 dist/release/wgt）
  */
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,9 +33,18 @@ const projectRoot = path.resolve(scriptDir, "..");
 
 const DEFAULT_API_BASE = "https://admin.wyantao.com/api";
 
+// 与本地脚本 publish-wgt.mjs 完全一致的四处正则，保证写回格式不变
+const VERSION_NAME_RE = /("versionName"\s*:\s*")([^"]*)(")/;
+const VERSION_CODE_RE = /("versionCode"\s*:\s*)(\d+)/;
+const APP_INFO_NAME_RE = /(versionName:\s*")([^"]*)(")/;
+const APP_INFO_CODE_RE = /(versionCode:\s*")([^"]*)(")/;
+
+const manifestPath = path.join(projectRoot, "src", "manifest.json");
+const appInfoPath = path.join(projectRoot, "src", "utils", "appInfo.ts");
+
 /** 解析命令行参数 */
 function parseArgs(argv) {
-  const options = { log: "", force: false, dryRun: false };
+  const options = { log: "", force: false, dryRun: false, writeBack: false, alignOnly: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--log") {
@@ -41,6 +54,10 @@ function parseArgs(argv) {
       options.force = true;
     } else if (arg === "--dry-run") {
       options.dryRun = true;
+    } else if (arg === "--write-back") {
+      options.writeBack = true;
+    } else if (arg === "--align-only") {
+      options.alignOnly = true;
     } else if (arg === "--help" || arg === "-h") {
       options.help = true;
     } else {
@@ -57,6 +74,50 @@ function bumpVersionName(versionName) {
     throw new Error(`线上版本名称不是 x.y.z 格式，无法自动递增：${versionName}`);
   }
   return `${parts[0]}.${parts[1]}.${Number(parts[2]) + 1}`;
+}
+
+/**
+ * 把新版本号写回仓库源码
+ *
+ * 只替换版本号本身，不动文件其余内容与既有格式（正则与本地 publish-wgt.mjs 一致）。
+ * 返回是否真的产生了改动——值已相同时返回 false，供 CI 跳过空提交。
+ */
+function writeBackVersions(versionName, versionCode) {
+  let changed = false;
+
+  if (!existsSync(manifestPath)) {
+    throw new Error(`找不到待写回的文件：${manifestPath}`);
+  }
+  if (!existsSync(appInfoPath)) {
+    throw new Error(`找不到待写回的文件：${appInfoPath}`);
+  }
+
+  // manifest.json：versionName 是字符串（正则第三组是闭合引号），versionCode 是数字（无引号组）
+  const manifestBefore = readFileSync(manifestPath, "utf8");
+  const manifestAfter = manifestBefore
+    .replace(VERSION_NAME_RE, (_m, p1, _p2, p3) => `${p1}${versionName}${p3}`)
+    .replace(VERSION_CODE_RE, (_m, p1) => `${p1}${versionCode}`);
+  if (manifestAfter !== manifestBefore) {
+    writeFileSync(manifestPath, manifestAfter, "utf8");
+    changed = true;
+    console.log(`已写回版本号：${manifestPath}`);
+  }
+
+  // appInfo.ts：两个都是字符串，闭合引号必须保留（第三捕获组）
+  const appInfoBefore = readFileSync(appInfoPath, "utf8");
+  const appInfoAfter = appInfoBefore
+    .replace(APP_INFO_NAME_RE, (_m, p1, _p2, p3) => `${p1}${versionName}${p3}`)
+    .replace(APP_INFO_CODE_RE, (_m, p1, _p2, p3) => `${p1}${versionCode}${p3}`);
+  if (appInfoAfter !== appInfoBefore) {
+    writeFileSync(appInfoPath, appInfoAfter, "utf8");
+    changed = true;
+    console.log(`已写回版本号：${appInfoPath}`);
+  }
+
+  if (!changed) {
+    console.log("源码版本号已与本次发布一致，无需写回。");
+  }
+  return changed;
 }
 
 /**
@@ -102,13 +163,22 @@ async function main() {
   const wgtDir = process.env.WGT_DIR || path.join(projectRoot, "dist", "release", "wgt");
   let wgtPath = process.env.WGT_PATH || "";
 
-  if (!token) {
+  // --align-only 只读线上版本并写回源码，不需要令牌
+  if (!token && !options.alignOnly) {
     throw new Error("缺少发布令牌：请在 CI 里配置 Secret 并注入环境变量 MEAL_PUBLISH_TOKEN");
   }
 
   // 1. 读线上最新版本
   const latest = await fetchLatestVersion(apiBase);
   console.log(`线上最新版本：${latest.versionName} (${latest.versionCode})`);
+
+  // --align-only：把源码版本号对齐到线上最新后结束（不递增、不打包、不发布）
+  if (options.alignOnly) {
+    const changed = writeBackVersions(latest.versionName, latest.versionCode);
+    console.log(changed ? "源码版本号已对齐到线上最新版本。" : "源码版本号已与线上一致，无需对齐。");
+    console.log(`VERSION_WRITTEN_BACK=${changed ? "1" : "0"}`);
+    return;
+  }
 
   // 2. 以线上版本为基准递增
   const nextName = bumpVersionName(latest.versionName);
@@ -173,10 +243,17 @@ async function main() {
   console.log(`  包大小=${(statSync(wgtPath).size / 1024 / 1024).toFixed(2)} MB`);
   console.log(`发布完成。${options.force ? "（强制更新）" : ""}`);
 
-  // 供 CI 写入 step summary
+  // 发布成功后才写回源码（失败路径已在上面抛错终止，不会走到这里）
+  let writtenBack = false;
+  if (options.writeBack) {
+    writtenBack = writeBackVersions(nextName, nextCode);
+  }
+
+  // 供 CI 写入 step summary 与后续提交步骤判断
   console.log(`PUBLISHED_VERSION=${created.versionName}`);
   console.log(`PUBLISHED_VERSION_CODE=${created.versionCode}`);
   console.log(`PUBLISHED_WGT_URL=${created.wgtUrl}`);
+  console.log(`VERSION_WRITTEN_BACK=${writtenBack ? "1" : "0"}`);
 }
 
 main().catch((error) => {

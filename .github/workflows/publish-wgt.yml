@@ -36,14 +36,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: read
+      # 写回步骤要把版本号提交推回 main，需要写权限
+      contents: write
     # 手动触发（workflow_dispatch）时可以选任意分支，必须在 job 层再守一道：
-    # 只有 main 的提交允许发布，避免把 dev 等未完成代码发上线
-    if: github.ref == 'refs/heads/main'
+    # 只有 main 的提交允许发布，避免把 dev 等未完成代码发上线。
+    # 同时挡掉自动写回的版本号提交（带 [skip ci]）：写回本身不应触发新一轮发版——
+    # GITHUB_TOKEN 推送通常已不触发工作流，这里再显式挡一道，杜绝发布循环。
+    # workflow_dispatch 手动触发时没有 head_commit，故用 || 兜底为 true。
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      !contains(github.event.head_commit.message || '', '[skip ci]')
 
     steps:
       - name: 检出源码
         uses: actions/checkout@v4
+        with:
+          # 后续要把写回提交推回 main，保留凭据
+          persist-credentials: true
 
       - name: 安装 Node
         uses: actions/setup-node@v4
@@ -62,19 +71,34 @@ jobs:
         env:
           # 发布令牌只存 Secrets，不写进仓库
           MEAL_PUBLISH_TOKEN: ${{ secrets.MEAL_PUBLISH_TOKEN }}
-        # 以线上最新版本为基准递增版本号（写入 wgt 内 manifest，不改仓库源码）→
-        # 打包并校验产物（不合格就不发）→ 调发布接口一次完成「上传 R2 + 新建版本记录」。
-        # 读不到线上版本时直接失败，不按源码版本号盲目发版
+        # 以线上最新版本为基准递增版本号（写入 wgt 内 manifest）→ 打包并校验产物（不合格就不发）→
+        # 调发布接口一次完成「上传 R2 + 新建版本记录」→ 发布成功后把新版本号写回仓库源码
+        # （src/manifest.json 与 src/utils/appInfo.ts），避免源码版本号长期落后于线上。
+        # 读不到线上版本或发布失败时直接退出，不会写回源码。
         run: |
           # pipefail 不能省：否则 node 失败会被 tee 的成功退出码掩盖，发布失败却显示成功
           set -o pipefail
-          node scripts/publish-wgt-ci.mjs --log "自动发布（${{ github.sha }}）" | tee publish.log
+          node scripts/publish-wgt-ci.mjs --write-back --log "自动发布（${{ github.sha }}）" | tee publish.log
           {
             echo "## 点餐端 wgt 已发布"
             echo ""
-            grep -E "^(线上最新版本|递增后版本|已上传|  versionId|  包大小)" publish.log || true
+            grep -E "^(线上最新版本|递增后版本|已上传|  versionId|  包大小|已写回版本号|源码版本号)" publish.log || true
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: 提交写回的版本号
+        # 只有发布脚本报告确实写回了源码才提交，避免空提交
+        run: |
+          if ! grep -q "^VERSION_WRITTEN_BACK=1$" publish.log; then
+            echo "源码版本号无需更新，跳过提交。"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          version=$(grep -E "^PUBLISHED_VERSION=" publish.log | cut -d= -f2)
+          code=$(grep -E "^PUBLISHED_VERSION_CODE=" publish.log | cut -d= -f2)
+          git add src/manifest.json src/utils/appInfo.ts
+          git commit -m "chore: 自动同步版本号至 ${version}(${code}) [skip ci]"
+          git push origin HEAD:main
       - name: 留存 wgt 产物
         if: always()
         uses: actions/upload-artifact@v4
