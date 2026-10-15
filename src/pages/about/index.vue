@@ -51,7 +51,9 @@ const year = new Date().getFullYear();
     <GlassNavBar title="关于" />
 
     <GlassCard class="hero">
-      <view class="hero__logo">{{ info.name.slice(0, 1) }}</view>
+      <view class="hero__logo">
+        <image class="hero__logo-img" src="/static/logo.png" mode="aspectFit" />
+      </view>
       <text class="hero__name">{{ info.name }}</text>
       <text class="hero__desc">{{ info.description }}</text>
       <view class="hero__ver">v{{ info.version }}</view>
@@ -85,14 +87,15 @@ const year = new Date().getFullYear();
   width: 140rpx;
   height: 140rpx;
   border-radius: 36rpx;
-  background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
-  color: #fff;
-  font-size: 64rpx;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 20rpx 40rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  /* logo 自带白色底，做成圆角白色磁贴（App 图标观感），与登录页 logo 保持一致 */
+  overflow: hidden;
+  box-shadow: 0 20rpx 40rpx $lg-accent-shadow;
+}
+
+.hero__logo-img {
+  width: 140rpx;
+  height: 140rpx;
+  display: block;
 }
 
 .hero__name {
