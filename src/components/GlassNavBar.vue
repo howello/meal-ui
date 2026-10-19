@@ -62,13 +62,16 @@ function goBack() {
 }
 
 .gnb__side {
-  flex: 0 0 96rpx;
+  /* 两侧不再固定 96rpx：右侧操作文字（如「保存中」）较长时会被裁掉 */
+  flex: 0 0 auto;
+  min-width: 96rpx;
   display: flex;
   align-items: center;
 }
 
 .gnb__side--right {
   justify-content: flex-end;
+  margin-left: 16rpx;
 }
 
 .gnb__back {

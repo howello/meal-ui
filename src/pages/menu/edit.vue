@@ -300,7 +300,7 @@ async function save() {
   }
 }
 
-/** AI 更新：把完整做法交给后端提取字段并直接落库，成功后用最新菜品刷新表单 */
+/** AI 更新：提交到服务端异步执行，立即返回详情页；更新结果稍后刷新可见 */
 async function aiUpdate() {
   const text = aiText.value.trim();
   if (!text) {
@@ -312,18 +312,13 @@ async function aiUpdate() {
   }
   aiUpdating.value = true;
   try {
-    const result = await aiUpdateDish({ dishId: dishId.value, text });
-    if (result?.dish) {
-      applyDish(result.dish);
-    }
-    const count = Object.keys(result?.fields || {}).length;
-    uni.showToast({
-      title: count ? "AI 已更新并保存" : "未提取到可用内容，菜品未变",
-      icon: "none",
-    });
+    await aiUpdateDish({ dishId: dishId.value, text });
+    uni.showToast({ title: "已提交，AI 正在后台更新", icon: "none" });
+    setTimeout(() => {
+      uni.navigateBack({ delta: 1 });
+    }, 700);
   } catch (e) {
     // 失败原因已由请求层提示；表单内容保持调用前状态
-  } finally {
     aiUpdating.value = false;
   }
 }
@@ -338,7 +333,7 @@ async function aiUpdate() {
           class="nav-save"
           :class="{ 'nav-save--disabled': submitting }"
           @click="save"
-        >{{ submitting ? "保存中" : "保存" }}</view>
+        >{{ submitting ? "保存中…" : "保存" }}</view>
       </template>
     </GlassNavBar>
 
@@ -862,10 +857,11 @@ async function aiUpdate() {
 .nav-save {
   height: 56rpx;
   line-height: 56rpx;
-  padding: 0 24rpx;
+  padding: 0 22rpx;
   border-radius: 999rpx;
   font-size: 26rpx;
   font-weight: 700;
+  white-space: nowrap;
   color: #fff;
   background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
   box-shadow: 0 8rpx 20rpx $lg-accent-shadow;

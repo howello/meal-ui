@@ -1,4 +1,4 @@
-import type { Category, Dish, DishAiUpdateResult } from "@/types";
+import type { Category, Dish } from "@/types";
 import { request, requestPage, requestVoid } from "@/utils/request";
 
 // 点餐端要一次拿到全量数据：左侧分类栏、右侧「按分类分组」都在前端完成。
@@ -33,10 +33,10 @@ export function updateDish(data: Partial<Dish> & { dishId: number }) {
 }
 
 /**
- * AI 更新菜品：从完整做法中提取文本字段并直接落库
+ * AI 更新菜品：从完整做法中提取文本字段并在服务端异步落库
  *
- * 未提取到的字段保留原值；返回本次写入的字段与更新后的菜品。
+ * 接口校验权限后立即返回，提取与保存在线程池执行；调用成功后应返回详情页稍后刷新。
  */
 export function aiUpdateDish(data: { dishId: number; text: string }) {
-  return request<DishAiUpdateResult>({ url: "/meal/dish/ai-update", method: "POST", data });
+  return requestVoid({ url: "/meal/dish/ai-update", method: "POST", data });
 }
