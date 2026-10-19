@@ -331,7 +331,16 @@ async function aiUpdate() {
 
 <template>
   <view class="page-body" :class="themeRootClass">
-    <GlassNavBar title="编辑菜品" />
+    <GlassNavBar title="编辑菜品">
+      <template #right>
+        <view
+          v-if="!loading"
+          class="nav-save"
+          :class="{ 'nav-save--disabled': submitting }"
+          @click="save"
+        >{{ submitting ? "保存中" : "保存" }}</view>
+      </template>
+    </GlassNavBar>
 
     <view v-if="loading" class="empty">加载中…</view>
 
@@ -496,10 +505,6 @@ async function aiUpdate() {
           {{ aiUpdating ? "AI 处理中…" : "AI 更新并保存" }}
         </GlassButton>
       </GlassCard>
-
-      <GlassButton class="save-btn" :disabled="submitting" @click="save">
-        {{ submitting ? "保存中…" : "保存" }}
-      </GlassButton>
     </template>
   </view>
 </template>
@@ -853,8 +858,21 @@ async function aiUpdate() {
   margin-top: 20rpx;
 }
 
-.save-btn {
-  margin-top: 32rpx;
+/* 导航栏右侧「保存」：主色文字按钮，避免与底部重复 */
+.nav-save {
+  height: 56rpx;
+  line-height: 56rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 8rpx 20rpx $lg-accent-shadow;
+}
+
+.nav-save--disabled {
+  opacity: 0.55;
 }
 
 .ph {

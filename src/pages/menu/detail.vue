@@ -6,11 +6,17 @@ import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { useCartStore } from "@/store/cart";
 import { useUserStore } from "@/store/user";
+import { useThemeStore } from "@/store/theme";
 import type { Dish, Ingredient } from "@/types";
+import { svgIcon } from "@/utils/icons";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const cartStore = useCartStore();
 const userStore = useUserStore();
+const themeStore = useThemeStore();
+
+/** 导航栏右侧「编辑」图标（跟随主题明暗） */
+const editIcon = computed(() => svgIcon("edit", themeStore.isDark ? "#9aa0ab" : "#8b93a7"));
 
 const dish = ref<Dish | null>(null);
 const remark = ref("");
@@ -114,7 +120,7 @@ function addToCart() {
     <GlassNavBar title="菜品详情">
       <template #right>
         <view v-if="canEdit && dish" class="nav-edit" @click="openEdit">
-          <text class="nav-edit__text">编辑</text>
+          <image class="nav-edit__ic" :src="editIcon" />
         </view>
       </template>
     </GlassNavBar>
@@ -196,20 +202,21 @@ function addToCart() {
 </template>
 
 <style lang="scss" scoped>
-/* 导航栏右侧「编辑」入口 */
+/* 导航栏右侧「编辑」图标按钮 */
 .nav-edit {
-  height: 56rpx;
-  line-height: 56rpx;
-  padding: 0 24rpx;
-  border-radius: 999rpx;
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
   background: $lg-fill-2;
   border: 1rpx solid $lg-accent-border;
 }
 
-.nav-edit__text {
-  font-size: 24rpx;
-  font-weight: 600;
-  color: $lg-accent;
+.nav-edit__ic {
+  width: 36rpx;
+  height: 36rpx;
 }
 
 .detail {
