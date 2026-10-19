@@ -47,6 +47,13 @@
       }
     },
     {
+      "path": "pages/menu/edit",
+      "style": {
+        "navigationBarTitleText": "编辑菜品",
+        "navigationStyle": "custom"
+      }
+    },
+    {
       "path": "pages/cart/index",
       "style": {
         "navigationBarTitleText": "购物车",

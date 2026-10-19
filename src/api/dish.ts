@@ -1,5 +1,5 @@
-import type { Category, Dish } from "@/types";
-import { request, requestPage } from "@/utils/request";
+import type { Category, Dish, DishAiUpdateResult } from "@/types";
+import { request, requestPage, requestVoid } from "@/utils/request";
 
 // 点餐端要一次拿到全量数据：左侧分类栏、右侧「按分类分组」都在前端完成。
 // 后端菜品/分类列表走 RuoYi 分页且默认 pageSize=10，不显式放大就只返回前 10 条，
@@ -25,4 +25,18 @@ export function listDish(params: { categoryId?: number; keyword?: string }) {
 /** 菜品详情（含用料、做法与小贴士） */
 export function getDish(dishId: number) {
   return request<Dish>({ url: `/meal/dish/${dishId}` });
+}
+
+/** 更新菜品（需要 meal:dish:edit 权限，厨师 / 家庭管理员可用） */
+export function updateDish(data: Partial<Dish> & { dishId: number }) {
+  return requestVoid({ url: "/meal/dish", method: "PUT", data });
+}
+
+/**
+ * AI 更新菜品：从完整做法中提取文本字段并直接落库
+ *
+ * 未提取到的字段保留原值；返回本次写入的字段与更新后的菜品。
+ */
+export function aiUpdateDish(data: { dishId: number; text: string }) {
+  return request<DishAiUpdateResult>({ url: "/meal/dish/ai-update", method: "POST", data });
 }

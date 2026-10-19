@@ -43,6 +43,14 @@ export interface Dish {
   count?: number;
 }
 
+/** 菜品 AI 更新结果 */
+export interface DishAiUpdateResult {
+  /** 本次实际写入数据库的字段集合 */
+  fields: Record<string, unknown>;
+  /** 更新后的完整菜品 */
+  dish: Dish;
+}
+
 /** 订单明细（菜品快照） */
 export interface OrderItem {
   itemId?: number;

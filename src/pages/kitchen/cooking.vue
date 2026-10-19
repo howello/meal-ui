@@ -2,6 +2,7 @@
 import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { reactive, ref } from "vue";
 import { finishOrder, kitchenOrders } from "@/api/order";
+import CachedImage from "@/components/CachedImage.vue";
 import TabBar from "@/components/TabBar.vue";
 import { useUserStore } from "@/store/user";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
@@ -164,7 +165,8 @@ function cookText(order: Order): string {
           :class="{ 'item--done': isDone(order, item) }"
           @click="openDish(item)"
         >
-          <view class="item__cover">{{ item.dishName }}</view>
+          <CachedImage v-if="item.dishCover" class="item__cover" :src="item.dishCover" mode="aspectFill" />
+          <view v-else class="item__cover item__cover--ph">{{ item.dishName }}</view>
           <view class="item__main">
             <text class="item__name">{{ item.dishName }} × {{ item.count }}</text>
             <text v-if="item.remark" class="item__remark">备注：{{ item.remark }}</text>
@@ -261,6 +263,11 @@ function cookText(order: Order): string {
   height: 76rpx;
   flex: 0 0 76rpx;
   border-radius: 16rpx;
+  overflow: hidden;
+}
+
+/* 无封面时的渐变占位：沿用原有「色块 + 菜名」样式 */
+.item__cover--ph {
   background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
   font-size: 18rpx;
@@ -269,6 +276,7 @@ function cookText(order: Order): string {
   justify-content: center;
   text-align: center;
   padding: 0 6rpx;
+  box-sizing: border-box;
 }
 
 .item__main {

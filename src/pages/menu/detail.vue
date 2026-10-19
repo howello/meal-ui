@@ -5,34 +5,67 @@ import { getDish } from "@/api/dish";
 import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { useCartStore } from "@/store/cart";
+import { useUserStore } from "@/store/user";
 import type { Dish, Ingredient } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 
 const cartStore = useCartStore();
+const userStore = useUserStore();
 
 const dish = ref<Dish | null>(null);
 const remark = ref("");
 const count = ref(1);
 const loading = ref(true);
+/** 当前菜品 ID，用于从编辑页返回后刷新 */
+const dishId = ref(0);
 /** 只读模式：来自制作中页跳转时隐藏加入购物车等加购交互，仅展示菜品信息 */
 const readonly = ref(false);
+/** 厨师与家庭管理员可编辑菜品 */
+const canEdit = computed(() => userStore.isChef || userStore.isManager);
 useOrderNotifierLifecycle();
 
 onLoad(async (options) => {
-  const dishId = Number(options?.dishId || 0);
+  dishId.value = Number(options?.dishId || 0);
   readonly.value = options?.readonly === "1" || options?.readonly === "true";
-  if (!dishId) {
+  if (!dishId.value) {
+    loading.value = false;
     uni.showToast({ title: "菜品不存在", icon: "none" });
     return;
   }
+  // 角色决定是否显示编辑入口：冷启动先取一次身份，失败不影响详情浏览
+  if (!userStore.user) {
+    await userStore.fetchInfo().catch(() => {});
+  } else {
+    userStore.refreshInfo();
+  }
+  await loadDish();
+});
+
+/** 从编辑页返回时重新拉取，展示最新内容 */
+onShow(() => {
+  if (dishId.value && !loading.value) {
+    loadDish();
+  }
+});
+
+async function loadDish() {
+  loading.value = true;
   try {
-    dish.value = await getDish(dishId);
+    dish.value = await getDish(dishId.value);
   } catch (e) {
     dish.value = null;
   } finally {
     loading.value = false;
   }
-});
+}
+
+/** 进入编辑页；非厨师 / 家庭管理员不显示入口 */
+function openEdit() {
+  if (!canEdit.value || !dishId.value) {
+    return;
+  }
+  uni.navigateTo({ url: `/pages/menu/edit?dishId=${dishId.value}` });
+}
 
 const ingredients = computed<Ingredient[]>(() => parseJson<Ingredient[]>(dish.value?.ingredients, []));
 const steps = computed<string[]>(() => parseJson<string[]>(dish.value?.steps, []));
@@ -78,7 +111,13 @@ function addToCart() {
 
 <template>
   <view class="theme-page" :class="themeRootClass">
-    <GlassNavBar title="菜品详情" />
+    <GlassNavBar title="菜品详情">
+      <template #right>
+        <view v-if="canEdit && dish" class="nav-edit" @click="openEdit">
+          <text class="nav-edit__text">编辑</text>
+        </view>
+      </template>
+    </GlassNavBar>
 
     <view v-if="dish" class="detail">
       <view class="hero">
@@ -157,6 +196,22 @@ function addToCart() {
 </template>
 
 <style lang="scss" scoped>
+/* 导航栏右侧「编辑」入口 */
+.nav-edit {
+  height: 56rpx;
+  line-height: 56rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  background: $lg-fill-2;
+  border: 1rpx solid $lg-accent-border;
+}
+
+.nav-edit__text {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: $lg-accent;
+}
+
 .detail {
   padding-bottom: 180rpx;
   /* 自定义玻璃导航栏固定顶部，内容整体下移让位（状态栏 + 88rpx 导航栏） */
