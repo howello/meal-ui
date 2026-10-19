@@ -14,11 +14,11 @@ export function listCategory(params?: { name?: string }) {
   });
 }
 
-/** 菜品列表，支持按分类与关键词筛选，取全量 */
-export function listDish(params: { categoryId?: number; keyword?: string }) {
+/** 菜品列表，支持按分类与关键词筛选，取全量；默认只返回上架菜品 */
+export function listDish(params: { categoryId?: number; keyword?: string; status?: string }) {
   return requestPage<Dish>({
     url: "/meal/dish/list",
-    data: { pageSize: ALL_PAGE_SIZE, ...params },
+    data: { pageSize: ALL_PAGE_SIZE, ...params, status: params.status ?? "0" },
   });
 }
 

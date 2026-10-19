@@ -9,6 +9,7 @@ import { useCartStore } from "@/store/cart";
 import { useUserStore } from "@/store/user";
 import { svgIcon } from "@/utils/icons";
 import { preloadImages } from "@/utils/imageCache";
+import { consumeMenuDirty, MENU_CACHE_KEY } from "@/utils/menuCache";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 import type { Category, Dish } from "@/types";
 
@@ -70,6 +71,11 @@ onShow(async () => {
     // 已从本地缓存恢复身份：先渲染，再后台刷新一次，token 失效由请求层踢回登录
     userStore.refreshInfo();
   }
+  // 菜品在本端被编辑保存过（含上下架）：忽略内存与本地缓存，强制重拉一次
+  if (consumeMenuDirty()) {
+    menuInitialized = false;
+    uni.removeStorageSync(MENU_CACHE_KEY);
+  }
   // 已加载过全量菜单且不在搜索态（如从菜品详情返回）：直接用内存数据，不重复请求
   if (menuInitialized && !keyword.value) {
     await nextTick();
@@ -81,8 +87,6 @@ onShow(async () => {
 });
 
 /* ============ 本地缓存：命中即读、仅下拉刷新才重新拉取 ============ */
-/** 分类 + 全量菜品的本地缓存 key */
-const MENU_CACHE_KEY = "meal-menu-cache";
 /** 本次会话是否已加载过全量菜单（命中缓存或请求成功后置真），onShow 据此跳过重复加载 */
 let menuInitialized = false;
 

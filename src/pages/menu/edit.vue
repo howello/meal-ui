@@ -9,6 +9,7 @@ import GlassCard from "@/components/GlassCard.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { useUserStore } from "@/store/user";
 import type { Category, Dish, Ingredient } from "@/types";
+import { markMenuDirty } from "@/utils/menuCache";
 
 const userStore = useUserStore();
 
@@ -289,6 +290,8 @@ async function save() {
       tips: serializeSteps(tips.value),
       status: form.status,
     });
+    // 上下架或详情变更后，点餐区下次显示时强制重拉，避免本地缓存继续展示已下架的菜
+    markMenuDirty();
     uni.showToast({ title: "保存成功", icon: "none" });
     setTimeout(() => {
       uni.navigateBack({ delta: 1 });
