@@ -313,6 +313,8 @@ async function aiUpdate() {
   aiUpdating.value = true;
   try {
     await aiUpdateDish({ dishId: dishId.value, text });
+    // 标记该菜品有待完成的异步 AI 更新，详情页返回后会短轮询刷新
+    uni.setStorageSync("meal-dish-ai-pending", dishId.value);
     uni.showToast({ title: "已提交，AI 正在后台更新", icon: "none" });
     setTimeout(() => {
       uni.navigateBack({ delta: 1 });

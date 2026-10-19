@@ -51,17 +51,74 @@ onLoad(async (options) => {
 onShow(() => {
   if (dishId.value && !loading.value) {
     loadDish();
+    pollAiUpdate();
   }
 });
 
-async function loadDish() {
-  loading.value = true;
+/**
+ * AI 更新是服务端异步执行的：编辑页提交后会写入待刷新标记，
+ * 这里短轮询几次，让用户回到详情页后尽快看到更新结果。
+ */
+const AI_PENDING_KEY = "meal-dish-ai-pending";
+let aiPollTimer: ReturnType<typeof setTimeout> | null = null;
+
+function pollAiUpdate() {
+  const pending = Number(uni.getStorageSync(AI_PENDING_KEY) || 0);
+  if (!pending || pending !== dishId.value) {
+    return;
+  }
+  // 记录当前内容摘要：轮询到内容变化即视为异步更新完成，停止轮询
+  const before = dishSignature();
+  let attempts = 0;
+  const poll = async () => {
+    attempts += 1;
+    await loadDish(true);
+    if (dishSignature() !== before) {
+      uni.removeStorageSync(AI_PENDING_KEY);
+      uni.showToast({ title: "AI 更新已完成", icon: "none" });
+      return;
+    }
+    if (attempts >= 6) {
+      uni.removeStorageSync(AI_PENDING_KEY);
+      return;
+    }
+    aiPollTimer = setTimeout(poll, 3000);
+  };
+  aiPollTimer = setTimeout(poll, 1500);
+}
+
+/** 菜品内容摘要：用于判断异步 AI 更新是否已落库 */
+function dishSignature(): string {
+  const item = dish.value;
+  if (!item) {
+    return "";
+  }
+  return [item.description, item.tags, item.ingredients, item.steps, item.tips, item.duration, item.level, item.serve, item.kcal]
+    .map((value) => value || "")
+    .join("|");
+}
+
+onUnload(() => {
+  if (aiPollTimer) {
+    clearTimeout(aiPollTimer);
+    aiPollTimer = null;
+  }
+});
+
+async function loadDish(silent = false) {
+  if (!silent) {
+    loading.value = true;
+  }
   try {
     dish.value = await getDish(dishId.value);
   } catch (e) {
-    dish.value = null;
+    if (!silent) {
+      dish.value = null;
+    }
   } finally {
-    loading.value = false;
+    if (!silent) {
+      loading.value = false;
+    }
   }
 }
 
