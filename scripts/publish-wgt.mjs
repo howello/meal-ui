@@ -6,7 +6,10 @@
  * 打包或上传失败时会把版本号回退到自增前，避免版本号空耗。
  *
  * 用法：
- *   npm run publish:wgt -- [--log "更新说明"] [--force] [--no-bump] [--name 1.1.0]
+ *   npm run publish:wgt -- [--log "更新说明"] [--force] [--no-bump] [--name 1.1.0] [--ai-log]
+ *
+ * --ai-log：未显式指定 --log 时，调用后端润色接口把提交摘要提炼成用户可读的更新说明；
+ *           失败自动回退原始提交摘要，不阻塞发布。
  *
  * 配置（优先级：命令行 > 环境变量 > scripts/publish.env.local）：
  *   MEAL_API_BASE         后端地址，默认 http://localhost:9527
@@ -18,7 +21,7 @@
  *   HBUILDERX_CLI         HBuilderX CLI 路径，默认 D:\IDE\HBuilderX\cli.exe
  *   HBUILDERX_PROJECT     HBuilderX 里的项目名，默认 meal-ui
  */
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -65,13 +68,15 @@ function readLocalConfig() {
 
 /** 解析命令行参数 */
 function parseArgs(argv) {
-  const options = { log: "", force: false, bump: true, name: "" };
+  const options = { log: "", force: false, bump: true, name: "", aiLog: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--no-bump") {
       options.bump = false;
     } else if (arg === "--force") {
       options.force = true;
+    } else if (arg === "--ai-log") {
+      options.aiLog = true;
     } else if (arg === "--log") {
       options.log = argv[i + 1] || "";
       i += 1;
@@ -85,6 +90,95 @@ function parseArgs(argv) {
     }
   }
   return options;
+}
+
+/** 润色接口超时（毫秒）：超时即回退原始摘要，不让 AI 拖住发布 */
+const POLISH_TIMEOUT_MS = 15000;
+
+/** 单次润色的原始摘要上限（字符），与服务端截断保持一致 */
+const RELEASE_COMMITS_MAX_LENGTH = 2000;
+
+/**
+ * 收集上次发版以来的提交标题
+ *
+ * 以「chore: 自动同步版本号至 ...」提交为基线；没有基线时退化为最近 20 条。
+ *
+ * @returns 每行一条的提交标题；取不到时返回空串
+ */
+function collectReleaseCommits() {
+  const run = (args) => execFileSync("git", args, { cwd: projectRoot, encoding: "utf8" }).trim();
+  try {
+    const lastBump = run(["log", "-1", "--format=%H", "--grep=自动同步版本号"]).split("\n")[0];
+    const range = lastBump ? `${lastBump}..HEAD` : "HEAD~20..HEAD";
+    const subjects = run(["log", range, "--pretty=format:%s", "--no-merges"])
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(
+        (line) =>
+          line &&
+          !line.includes("自动同步版本号") &&
+          !line.includes("[skip ci]") &&
+          !line.startsWith("Merge "),
+      );
+    return [...new Set(subjects)].slice(0, 15).join("\n").slice(0, RELEASE_COMMITS_MAX_LENGTH);
+  } catch (e) {
+    console.warn(`读取提交记录失败，更新说明将使用版本号：${e.message}`);
+    return "";
+  }
+}
+
+/**
+ * 调后端润色接口
+ *
+ * 任何失败（网络、超时、业务错误、空结果）都返回 null，由调用方回退原文。
+ *
+ * @returns 润色后的文本或 null
+ */
+async function polishUpdateLog(apiBase, publishToken, versionName, versionCode, source) {
+  if (!source) {
+    return null;
+  }
+  try {
+    const res = await fetch(`${apiBase}/meal/app/version/polish-log`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Publish-Token": publishToken },
+      body: JSON.stringify({ versionName, versionCode, source }),
+      signal: AbortSignal.timeout(POLISH_TIMEOUT_MS),
+    });
+    const body = await res.json().catch(() => null);
+    if (!body || body.code !== 200) {
+      console.warn(`日志润色失败，使用原始提交摘要：${(body && body.msg) || `HTTP ${res.status}`}`);
+      return null;
+    }
+    const text = typeof body.data === "string" ? body.data : body.data && body.data.updateLog;
+    return text && text.trim() ? text.trim() : null;
+  } catch (e) {
+    console.warn(`日志润色失败，使用原始提交摘要：${e.message}`);
+    return null;
+  }
+}
+
+/**
+ * 计算本次发布的更新说明
+ *
+ * 优先级：人工 --log > AI 润色（--ai-log）> 原始提交摘要 > 版本号兜底。
+ */
+async function resolveUpdateLog(options, apiBase, publishToken, nextName, nextCode) {
+  if (options.log) {
+    return options.log;
+  }
+  const rawCommits = collectReleaseCommits();
+  if (options.aiLog) {
+    if (!publishToken) {
+      console.warn("未配置 MEAL_PUBLISH_TOKEN，无法调用日志润色接口，使用原始提交摘要。");
+    } else {
+      const polished = await polishUpdateLog(apiBase, publishToken, nextName, nextCode, rawCommits);
+      if (polished) {
+        return polished;
+      }
+    }
+  }
+  return rawCommits || `更新至 v${nextName}`;
 }
 
 /** 版本名称修订号 +1（1.0.3 → 1.0.4） */
@@ -274,7 +368,9 @@ async function main() {
     console.log(`wgt 产物：${wgtPath}（${(size / 1024 / 1024).toFixed(2)} MB）`);
 
     const buffer = await readFile(wgtPath);
-    const updateLog = options.log || `更新至 v${nextName}`;
+    // 更新说明：人工 --log 优先；--ai-log 时调润色接口，失败回退原始提交摘要
+    const updateLog = await resolveUpdateLog(options, apiBase, cfg.publishToken, nextName, nextCode);
+    console.log(`本次更新说明：\n${updateLog}`);
 
     // 首选：发布令牌一次请求完成「上传 wgt + 建版本记录」，不走登录、不受验证码/人机校验影响
     if (cfg.publishToken) {
