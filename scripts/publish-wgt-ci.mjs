@@ -15,8 +15,11 @@
  * 会从落后的源码版本号自增，产生「发布记录生成但用户收不到」的无效发布）。
  *
  * 用法：
- *   node scripts/publish-wgt-ci.mjs [--log "更新说明"] [--force] [--dry-run] [--write-back]
+ *   node scripts/publish-wgt-ci.mjs [--log "更新说明"] [--force] [--dry-run] [--write-back] [--ai-log]
  *   node scripts/publish-wgt-ci.mjs --align-only   # 只把源码版本号对齐到线上最新，不打包不发布
+ *
+ * --ai-log：未显式指定 --log 时，把上次发版以来的提交标题交给后端润色接口，
+ *           生成用户可读的更新说明。润色失败自动回退原始提交摘要，不阻塞发版。
  *
  * 配置（环境变量，CI 里来自 GitHub Secrets）：
  *   MEAL_API_BASE       后端地址，默认 https://admin.wyantao.com/api
@@ -25,6 +28,7 @@
  *   WGT_DIR             wgt 输出目录（可选；默认 dist/release/wgt）
  */
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -44,7 +48,7 @@ const appInfoPath = path.join(projectRoot, "src", "utils", "appInfo.ts");
 
 /** 解析命令行参数 */
 function parseArgs(argv) {
-  const options = { log: "", force: false, dryRun: false, writeBack: false, alignOnly: false };
+  const options = { log: "", force: false, dryRun: false, writeBack: false, alignOnly: false, aiLog: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--log") {
@@ -56,6 +60,8 @@ function parseArgs(argv) {
       options.dryRun = true;
     } else if (arg === "--write-back") {
       options.writeBack = true;
+    } else if (arg === "--ai-log") {
+      options.aiLog = true;
     } else if (arg === "--align-only") {
       options.alignOnly = true;
     } else if (arg === "--help" || arg === "-h") {
@@ -65,6 +71,98 @@ function parseArgs(argv) {
     }
   }
   return options;
+}
+
+/** 润色接口超时（毫秒）：超时即回退原始摘要，不让 AI 拖住发版 */
+const POLISH_TIMEOUT_MS = 15000;
+
+/** 单次润色的原始摘要上限（字符），与服务端截断保持一致 */
+const RELEASE_COMMITS_MAX_LENGTH = 2000;
+
+/**
+ * 收集上次发版以来的提交标题
+ *
+ * 发布成功后 CI 会提交「chore: 自动同步版本号至 x.y.z(n) [skip ci]」，以它为基线；
+ * 首次发版没有基线时退化为最近 20 条。浅克隆（fetch-depth=1）下能取到的提交有限，
+ * 因此 workflow 必须配置 fetch-depth: 0。
+ *
+ * @returns 每行一条的提交标题；取不到时返回空串
+ */
+function collectReleaseCommits() {
+  const run = (args) => execFileSync("git", args, { cwd: projectRoot, encoding: "utf8" }).trim();
+  try {
+    const lastBump = run(["log", "-1", "--format=%H", "--grep=自动同步版本号"]).split("\n")[0];
+    const range = lastBump ? `${lastBump}..HEAD` : "HEAD~20..HEAD";
+    const subjects = run(["log", range, "--pretty=format:%s", "--no-merges"])
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(
+        (line) =>
+          line &&
+          !line.includes("自动同步版本号") &&
+          !line.includes("[skip ci]") &&
+          !line.startsWith("Merge "),
+      );
+    return [...new Set(subjects)].slice(0, 15).join("\n").slice(0, RELEASE_COMMITS_MAX_LENGTH);
+  } catch (e) {
+    console.warn(`读取提交记录失败，更新说明将使用版本号：${e.message}`);
+    return "";
+  }
+}
+
+/**
+ * 调后端润色接口
+ *
+ * 任何失败（网络、超时、业务错误、空结果）都返回 null，由调用方回退原文。
+ *
+ * @param apiBase     后端地址
+ * @param token       发布令牌
+ * @param versionName 版本名称
+ * @param versionCode 版本序号
+ * @param source      原始提交摘要
+ * @returns 润色后的文本或 null
+ */
+async function polishUpdateLog(apiBase, token, versionName, versionCode, source) {
+  if (!source) {
+    return null;
+  }
+  try {
+    const res = await fetch(`${apiBase}/meal/app/version/polish-log`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Publish-Token": token },
+      body: JSON.stringify({ versionName, versionCode, source }),
+      signal: AbortSignal.timeout(POLISH_TIMEOUT_MS),
+    });
+    const body = await res.json().catch(() => null);
+    if (!body || body.code !== 200) {
+      console.warn(`日志润色失败，使用原始提交摘要：${(body && body.msg) || `HTTP ${res.status}`}`);
+      return null;
+    }
+    const text = typeof body.data === "string" ? body.data : body.data && body.data.updateLog;
+    return text && text.trim() ? text.trim() : null;
+  } catch (e) {
+    console.warn(`日志润色失败，使用原始提交摘要：${e.message}`);
+    return null;
+  }
+}
+
+/**
+ * 计算本次发布的更新说明
+ *
+ * 优先级：人工 --log > AI 润色（--ai-log）> 原始提交摘要 > 版本号兜底。
+ */
+async function resolveUpdateLog(options, apiBase, token, nextName, nextCode) {
+  if (options.log) {
+    return options.log;
+  }
+  const rawCommits = collectReleaseCommits();
+  if (options.aiLog) {
+    const polished = await polishUpdateLog(apiBase, token, nextName, nextCode, rawCommits);
+    if (polished) {
+      return polished;
+    }
+  }
+  return rawCommits || `更新至 v${nextName}`;
 }
 
 /** 版本名称修订号 +1（1.0.6 → 1.0.7） */
@@ -191,7 +289,6 @@ async function main() {
   }
 
   // 3. 重新打包，把新版本号写入 wgt 内 manifest（不改仓库源码）
-  const { execFileSync } = await import("node:child_process");
   execFileSync(process.execPath, [
     path.join(scriptDir, "build-wgt.mjs"),
     "--version-name", nextName,
@@ -220,7 +317,9 @@ async function main() {
 
   // 5. 发布：一次请求完成「上传 wgt 到 R2 + 新建版本记录」
   const buffer = readFileSync(wgtPath);
-  const updateLog = options.log || `更新至 v${nextName}`;
+  // 更新说明：人工 --log 优先；--ai-log 时调润色接口，失败回退原始提交摘要
+  const updateLog = await resolveUpdateLog(options, apiBase, token, nextName, nextCode);
+  console.log(`本次更新说明：\n${updateLog}`);
   const form = new FormData();
   form.append("file", new Blob([buffer]), path.basename(wgtPath));
   form.append("versionName", nextName);
