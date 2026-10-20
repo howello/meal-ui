@@ -1,8 +1,12 @@
-/** 菜品分类 */
+/** 菜品分类（唯一主类） */
 export interface Category {
   categoryId: number;
   deptId?: number;
   name: string;
+  /** 分类说明（仅在管理端展示，点餐端不展示） */
+  description?: string;
+  /** 分类依据（仅在管理端展示） */
+  basis?: string;
   icon?: string;
   sort?: number;
   status?: string;
@@ -18,9 +22,9 @@ export interface Ingredient {
 export interface Dish {
   dishId: number;
   deptId?: number;
-  /** 关联分类ID列表（一道菜可挂多个分类） */
+  /** 关联分类ID列表（最多 1 个主类） */
   categoryIds?: number[];
-  /** 分类名称（顿号拼接，列表附带） */
+  /** 分类名称（唯一主类名） */
   categoryNames?: string;
   name: string;
   cover?: string;
@@ -38,7 +42,10 @@ export interface Dish {
   tips?: string;
   status?: string;
   sort?: number;
+  /** 来源（0自建 1新菜提案通过） */
   source?: string;
+  /** 近 90 天被点份数（仅招牌接口返回，不落库） */
+  orderCount?: number;
   /** 前端本地字段：购物车里的份数 */
   count?: number;
 }
@@ -111,9 +118,9 @@ export interface Review {
 export interface Proposal {
   proposalId?: number;
   name: string;
-  /** 期望分类ID列表 */
+  /** 期望主类ID列表（最多 1 个） */
   categoryIds?: number[];
-  /** 期望分类名称（顿号拼接） */
+  /** 期望主类名称（唯一主类名） */
   categoryNames?: string;
   description?: string;
   image?: string;

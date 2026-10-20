@@ -25,14 +25,9 @@ onLoad(async () => {
   }
 });
 
-/** 分类可多选：点一下切换选中态 */
-function toggleCategory(categoryId: number) {
-  const idx = selectedCategoryIds.value.indexOf(categoryId);
-  if (idx >= 0) {
-    selectedCategoryIds.value.splice(idx, 1);
-  } else {
-    selectedCategoryIds.value.push(categoryId);
-  }
+/** 分类单选：点一下选中该主类；再次点击不取消（避免误清空） */
+function selectCategory(categoryId: number) {
+  selectedCategoryIds.value = [categoryId];
 }
 
 function isSelected(categoryId: number): boolean {
@@ -96,17 +91,18 @@ async function submit() {
     </view>
 
     <view class="field field--col">
-      <text class="field__label">分类（选填）</text>
+      <text class="field__label">主类（选填）</text>
       <view class="cats">
         <text
           v-for="cat in categories"
           :key="cat.categoryId"
           class="cat"
           :class="{ 'cat--on': isSelected(cat.categoryId) }"
-          @click="toggleCategory(cat.categoryId)"
+          @click="selectCategory(cat.categoryId)"
         >{{ cat.name }}</text>
       </view>
       <text v-if="!categories.length" class="sub-block__empty">暂无分类，可留空由 AI 自动归类</text>
+      <text v-else class="sub-block__empty">一道菜只能归一个主类；留空则由 AI 自动归类</text>
     </view>
 
     <view class="card">

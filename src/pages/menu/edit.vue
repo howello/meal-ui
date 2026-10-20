@@ -31,6 +31,11 @@ const categoryOptions = computed(() =>
   dishDeptId.value === 0 ? categories.value.filter((cat) => (cat.deptId ?? 0) === 0) : categories.value,
 );
 
+/** 唯一主类：单选值（分类候选固定为 9 个公共主类） */
+const selectedCategoryId = computed(() =>
+  selectedCategoryIds.value.length ? selectedCategoryIds.value[0] : undefined,
+);
+
 /** 表单：文本类字段直接双向绑定 */
 const form = reactive({
   name: "",
@@ -155,14 +160,9 @@ function parseJson<T>(raw: string | undefined, fallback: T): T {
   }
 }
 
-/** 分类多选：点一下切换选中态 */
-function toggleCategory(categoryId: number) {
-  const idx = selectedCategoryIds.value.indexOf(categoryId);
-  if (idx >= 0) {
-    selectedCategoryIds.value.splice(idx, 1);
-  } else {
-    selectedCategoryIds.value.push(categoryId);
-  }
+/** 分类单选：点一下选中该主类；再次点击不取消（避免误清空） */
+function selectCategory(categoryId: number) {
+  selectedCategoryIds.value = [categoryId];
 }
 
 function isCategorySelected(categoryId: number): boolean {
@@ -411,17 +411,18 @@ async function aiUpdate() {
       </GlassCard>
 
       <GlassCard class="section">
-        <text class="section-title">分类</text>
+        <text class="section-title">主类</text>
         <view class="cats">
           <text
             v-for="cat in categoryOptions"
             :key="cat.categoryId"
             class="cat"
             :class="{ 'cat--on': isCategorySelected(cat.categoryId) }"
-            @click="toggleCategory(cat.categoryId)"
+            @click="selectCategory(cat.categoryId)"
           >{{ cat.name }}</text>
         </view>
         <text v-if="!categoryOptions.length" class="empty-line">暂无分类</text>
+        <text v-else class="empty-line">一道菜只能归一个主类；不选则标记为待分类</text>
       </GlassCard>
 
       <GlassCard class="section">

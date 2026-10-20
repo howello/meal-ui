@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onReady, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, getCurrentInstance, nextTick, ref } from "vue";
-import { listCategory, listDish } from "@/api/dish";
+import { listCategory, listDish, listSignatureDishes } from "@/api/dish";
 import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import TabBar from "@/components/TabBar.vue";
@@ -20,7 +20,9 @@ useOrderNotifierLifecycle();
 
 const categories = ref<Category[]>([]);
 const dishes = ref<Dish[]>([]);
-const activeCategoryId = ref<number | undefined>(undefined);
+/** 招牌推荐位：近 90 天已完成订单 Top 3（不是分类，不落库、不可写入） */
+const signatures = ref<Dish[]>([]);
+const activeCategoryId = ref<number | "signature" | undefined>(undefined);
 const keyword = ref("");
 const loading = ref(false);
 const refreshing = ref(false);
@@ -91,25 +93,29 @@ onShow(async () => {
 let menuInitialized = false;
 
 /** 读取本地菜单缓存；不存在或损坏返回 null */
-function readMenuCache(): { categories: Category[]; dishes: Dish[] } | null {
+function readMenuCache(): { categories: Category[]; dishes: Dish[]; signatures: Dish[] } | null {
   try {
     const raw = uni.getStorageSync(MENU_CACHE_KEY);
     const cached = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!cached || !Array.isArray(cached.categories) || !Array.isArray(cached.dishes)) {
       return null;
     }
-    return { categories: cached.categories, dishes: cached.dishes };
+    return {
+      categories: cached.categories,
+      dishes: cached.dishes,
+      signatures: Array.isArray(cached.signatures) ? cached.signatures : [],
+    };
   } catch (e) {
     return null;
   }
 }
 
-/** 把当前分类与全量菜品写入本地缓存 */
+/** 把当前分类、全量菜品与招牌写入本地缓存 */
 function writeMenuCache() {
   try {
     uni.setStorageSync(
       MENU_CACHE_KEY,
-      JSON.stringify({ categories: categories.value, dishes: dishes.value }),
+      JSON.stringify({ categories: categories.value, dishes: dishes.value, signatures: signatures.value }),
     );
   } catch (e) {
     // 本地缓存不可用不影响本次展示
@@ -124,7 +130,7 @@ function warmUpCovers() {
 /** 强制拉取分类与全量菜品，成功后刷新缓存并重新测量高亮 */
 async function refreshAll(showSkeleton = false) {
   keyword.value = "";
-  await Promise.all([loadCategories(), loadDishes(showSkeleton)]);
+  await Promise.all([loadCategories(), loadDishes(showSkeleton), loadSignatures()]);
   writeMenuCache();
   menuInitialized = true;
   activeCategoryId.value = undefined;
@@ -143,6 +149,7 @@ async function loadFromCacheOrNetwork() {
   if (cached) {
     categories.value = cached.categories;
     dishes.value = cached.dishes;
+    signatures.value = cached.signatures;
     menuInitialized = true;
     warmUpCovers();
     await nextTick();
@@ -170,7 +177,11 @@ async function loadCategories() {
   try {
     const res = await listCategory();
     categories.value = res.rows;
-    if (activeCategoryId.value !== undefined && !res.rows.some((item) => item.categoryId === activeCategoryId.value)) {
+    if (
+      activeCategoryId.value !== undefined &&
+      activeCategoryId.value !== "signature" &&
+      !res.rows.some((item) => item.categoryId === activeCategoryId.value)
+    ) {
       activeCategoryId.value = undefined;
     }
   } catch (e) {
@@ -197,6 +208,15 @@ async function loadDishes(showSkeleton = false) {
   await measureAndHighlight();
 }
 
+/** 拉取招牌推荐位；失败时保持空列表（招牌为空则不展示该分组） */
+async function loadSignatures() {
+  try {
+    signatures.value = await listSignatureDishes();
+  } catch (e) {
+    signatures.value = [];
+  }
+}
+
 /* 分类 icon：接口有就用，没有则按顺序给默认 icon（与参考 Demo 的 CATS 图标一致） */
 const DEFAULT_CATEGORY_ICONS = ["🔥", "🥗", "🍲", "🍚", "🍖", "🥦", "🍮", "🌶️"];
 
@@ -207,24 +227,42 @@ function categoryIcon(cat: Category, index: number): string {
 
 /* 每个分类的分组：categories 顺序为基准，菜品按 categoryIds 归组
    （left 分类栏与右侧分组一一对应，保证左右联动索引一致）
-   一道菜可挂多个分类，会同时出现在多个分组里——这是预期行为。
+   分类是唯一主类，一道菜只会出现在一个主类分组里。
+   招牌是推荐位：单独一组放在最前，且招牌里的菜从主类分组中移除，避免重复列菜；
+   搜索态不展示招牌，也不去重（只按关键词展示命中结果）。
    备注：categoryId 可能被后端序列化为数字或字符串，统一字符串化后比较，避免类型不匹配把整组过滤成空 */
-const groups = computed(() =>
-  categories.value.map((cat, index) => ({
-    cat,
-    icon: categoryIcon(cat, index),
-    items: dishes.value.filter((d) => {
+const signatureIds = computed(() => signatures.value.map((dish) => String(dish.dishId)));
+
+const groups = computed(() => {
+  const searched = !!keyword.value.trim();
+  const list: { key: string; cat: Category | null; icon: string; items: Dish[] }[] = [];
+  // 招牌分组：有数据且不在搜索态时展示；分类栏首项与它一一对应
+  if (!searched && signatures.value.length) {
+    list.push({ key: "signature", cat: null, icon: "⭐", items: signatures.value });
+  }
+  categories.value.forEach((cat, index) => {
+    const items = dishes.value.filter((d) => {
+      // 招牌里已经列过的菜，不再出现在主类分组
+      if (!searched && signatureIds.value.includes(String(d.dishId))) {
+        return false;
+      }
       // 优先按 categoryIds 归组；后端可能把 bigint 序列化成字符串，统一字符串化比较
       const ids = (d.categoryIds || []).map((id) => String(id));
       if (ids.includes(String(cat.categoryId))) {
         return true;
       }
-      // 退而按冗余 categoryNames（顿号拼接）兜底，避免 categoryIds 缺失时整组被过滤成空
-      const names = (d.categoryNames || "").split("、").map((name) => name.trim());
-      return names.includes((cat.name || "").trim());
-    }),
-  })),
-);
+      // 退而按冗余 categoryNames 兜底，避免 categoryIds 缺失时整组被过滤成空
+      return (d.categoryNames || "").trim() === (cat.name || "").trim();
+    });
+    list.push({ key: String(cat.categoryId), cat, icon: categoryIcon(cat, index), items });
+  });
+  return list;
+});
+
+/** 分组唯一 key：招牌用固定 key，主类用分类ID */
+function groupKey(g: { key: string }): string {
+  return g.key;
+}
 
 /* 没有菜品时的空态 */
 const emptyText = computed(() =>
@@ -326,7 +364,7 @@ function computeActive(rects: UniApp.NodeInfo[], boxTop: number, atBottom = fals
     });
   }
   const g = groups.value[idx];
-  const target = g ? g.cat.categoryId : undefined;
+  const target = g ? (g.cat ? g.cat.categoryId : "signature") : undefined;
   if (target !== activeCategoryId.value) {
     activeCategoryId.value = target;
     syncRail(idx);
@@ -345,7 +383,7 @@ async function measureAndHighlight(retry = 0) {
         measureAndHighlight(retry + 1);
       }, 50);
     } else if (groups.value.length > 0) {
-      activeCategoryId.value = groups.value[0].cat.categoryId;
+      activeCategoryId.value = groups.value[0].cat ? groups.value[0].cat.categoryId : "signature";
     }
     return;
   }
@@ -380,14 +418,14 @@ function onDishScroll(e: { detail?: { scrollTop?: number; scrollHeight?: number 
   });
 }
 
-/** 点击左侧分类：平滑滚动到对应分组顶部，并同步高亮 */
-async function pickCategory(categoryId: number) {
-  const g = groups.value.find((item) => item.cat.categoryId === categoryId);
+/** 点击左侧分类（或「招牌」）：平滑滚动到对应分组顶部，并同步高亮 */
+async function pickCategory(categoryKey: number | "signature") {
+  const g = groups.value.find((item) => (item.cat ? item.cat.categoryId : "signature") === categoryKey);
   if (!g) {
     return;
   }
   const idx = groups.value.indexOf(g);
-  activeCategoryId.value = categoryId;
+  activeCategoryId.value = categoryKey;
   syncRail(idx);
   categoryPickInFlight = true;
   if (categoryPickTimer !== null) {
@@ -413,7 +451,7 @@ async function pickCategory(categoryId: number) {
   const gRect = rects[idx];
   if (!gRect || gRect.top === undefined) {
     if (idx === groups.value.length - 1) {
-      activeCategoryId.value = categoryId;
+      activeCategoryId.value = categoryKey;
     }
     categoryPickInFlight = false;
     return;
@@ -462,14 +500,14 @@ async function pickCategory(categoryId: number) {
       >
         <view
           v-for="(g, i) in groups"
-          :key="g.cat.categoryId"
+          :key="groupKey(g)"
           class="rail-item"
-          :class="{ 'rail-item--on': g.cat.categoryId === activeCategoryId }"
+          :class="{ 'rail-item--on': (g.cat ? g.cat.categoryId : 'signature') === activeCategoryId }"
           :id="'rail-' + i"
-          @click="pickCategory(g.cat.categoryId)"
+          @click="pickCategory(g.cat ? g.cat.categoryId : 'signature')"
         >
           <text class="rail-item__ic">{{ g.icon }}</text>
-          <text class="rail-item__name">{{ g.cat.name }}</text>
+          <text class="rail-item__name">{{ g.cat ? g.cat.name : "招牌" }}</text>
         </view>
         <!-- 底部为悬浮 TabBar 让位：否则最后一个分类会被 TabBar 压住看不见 -->
         <view class="rail-tail"></view>
@@ -502,11 +540,11 @@ async function pickCategory(categoryId: number) {
         <view v-else-if="!dishes.length" class="empty">{{ emptyText }}</view>
 
         <template v-else>
-          <view v-for="g in groups" :key="g.cat.categoryId" class="menu-group">
+          <view v-for="g in groups" :key="groupKey(g)" class="menu-group">
             <!-- 吸顶分组标题 -->
             <view class="sec-tit">
               <text class="sec-tit__ic">{{ g.icon }}</text>
-              <text class="sec-tit__name">{{ g.cat.name }}</text>
+              <text class="sec-tit__name">{{ g.cat ? g.cat.name : "招牌" }}</text>
               <text class="sec-tit__cnt">{{ g.items.length }} 道</text>
             </view>
 

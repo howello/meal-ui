@@ -27,6 +27,15 @@ export function getDish(dishId: number) {
   return request<Dish>({ url: `/meal/dish/${dishId}` });
 }
 
+/**
+ * 招牌推荐位：本家庭近 90 天已完成订单中按份数取前 3 道仍上架的菜
+ *
+ * 招牌不是分类、不落库、不可写入；只读接口，登录即可调用。
+ */
+export function listSignatureDishes() {
+  return request<Dish[]>({ url: "/meal/dish/signature" });
+}
+
 /** 更新菜品（需要 meal:dish:edit 权限，厨师 / 家庭管理员可用） */
 export function updateDish(data: Partial<Dish> & { dishId: number }) {
   return requestVoid({ url: "/meal/dish", method: "PUT", data });
