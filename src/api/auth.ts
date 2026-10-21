@@ -41,9 +41,9 @@ export function logout() {
   return requestRaw({ url: "/logout", method: "POST" });
 }
 
-/** 家庭注册参数：家庭代码即目标家庭的部门ID */
+/** 家庭注册参数：家庭邀请码由家庭管理员在点餐端生成，1 天有效 */
 export interface FamilyRegisterBody {
-  /** 家庭代码（家庭管理员提供） */
+  /** 家庭邀请码（家庭管理员生成，16 位随机串） */
   familyCode: string;
   username: string;
   password: string;
@@ -55,7 +55,7 @@ export interface FamilyRegisterBody {
 }
 
 /**
- * 家庭注册：用家庭代码加入已有家庭
+ * 家庭注册：用家庭邀请码加入已有家庭
  *
  * 与既有匿名注册 `/register` 相互独立，不受注册开关约束；成功后绑定该家庭并获得
  * 默认「点餐员」角色，可直接登录。

@@ -207,7 +207,7 @@ function goNext() {
   });
 }
 
-/** 去家庭注册页：用家庭管理员提供的家庭代码加入已有家庭 */
+/** 去家庭注册页：用家庭管理员生成的邀请码加入已有家庭 */
 function goRegister() {
   uni.navigateTo({ url: "/pages/register/index" });
 }
@@ -260,7 +260,7 @@ function goRegister() {
 
       <view class="login__register" @click="goRegister">
         <text class="tiny">还没有账号？</text>
-        <text class="login__register-link">用家庭代码注册</text>
+        <text class="login__register-link">用邀请码注册</text>
       </view>
     </template>
   </view>

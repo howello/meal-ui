@@ -100,7 +100,7 @@ function toast(title: string) {
 
 async function submit() {
   if (!form.familyCode.trim()) {
-    toast("请输入家庭代码");
+    toast("请输入家庭邀请码");
     return;
   }
   if (!form.username.trim()) {
@@ -152,15 +152,16 @@ async function submit() {
   <view class="page-body" :class="themeRootClass">
     <GlassNavBar title="注册" />
 
-    <text class="tip">请向家庭管理员索取「家庭代码」，注册后即加入对应家庭</text>
+    <text class="tip">请向家庭管理员索取「家庭邀请码」，注册后即加入对应家庭。邀请码 1 天有效，过期请让管理员重新生成</text>
 
     <view class="field glass">
-      <text class="field__label">家庭代码</text>
+      <text class="field__label">家庭邀请码</text>
       <input
         v-model="form.familyCode"
         class="field__input"
-        type="number"
-        placeholder="家庭管理员提供的数字代码"
+        type="text"
+        maxlength="16"
+        placeholder="16 位字母数字，如 K7M2PQ9XRT4WNB8Y"
         placeholder-class="field__ph"
       />
     </view>

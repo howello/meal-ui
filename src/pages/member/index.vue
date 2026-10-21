@@ -9,6 +9,7 @@ import {
   removeFamilyMember,
   updateFamilyMember,
 } from "@/api/member";
+import { generateFamilyCode, getFamilyCode, type FamilyCodeInfo } from "@/api/family";
 import AppDialog from "@/components/AppDialog.vue";
 import GlassButton from "@/components/GlassButton.vue";
 import GlassCard from "@/components/GlassCard.vue";
@@ -37,8 +38,10 @@ const form = reactive({
   roleIds: [] as number[],
 });
 
-/** 家庭代码：就是本家庭的部门ID，把它发给要加入的家人 */
-const familyCode = computed(() => userStore.user?.deptId ?? userStore.user?.dept?.deptId ?? null);
+/** 家庭邀请码：由后端生成、1 天有效，把它发给要加入的家人 */
+const familyCode = ref<FamilyCodeInfo | null>(null);
+/** 生成中，避免连点产生多个码 */
+const codeLoading = ref(false);
 
 const isManager = computed(() => userStore.isManager);
 /** 当前登录用户ID：自己的那一行不显示「停用/移除」（后端也会拒绝） */
@@ -59,9 +62,14 @@ onShow(async () => {
 async function loadAll() {
   loading.value = true;
   try {
-    const [memberList, roleList] = await Promise.all([listFamilyMembers(), listFamilyRoles()]);
+    const [memberList, roleList, code] = await Promise.all([
+      listFamilyMembers(),
+      listFamilyRoles(),
+      getFamilyCode().catch(() => null),
+    ]);
     members.value = memberList;
     roles.value = roleList;
+    familyCode.value = code;
   } catch (e) {
     // 加载失败已由请求层提示
   } finally {
@@ -204,14 +212,54 @@ async function doRemove(member: FamilyMember) {
 }
 
 function copyFamilyCode() {
-  if (familyCode.value === null) {
+  const code = familyCode.value?.code;
+  if (!code) {
+    uni.showToast({ title: "请先生成邀请码", icon: "none" });
     return;
   }
   uni.setClipboardData({
-    data: String(familyCode.value),
-    success: () => uni.showToast({ title: "家庭代码已复制", icon: "none" }),
+    data: code,
+    success: () => uni.showToast({ title: "邀请码已复制", icon: "none" }),
   });
 }
+
+/** 生成或重新生成邀请码；旧码会立即失效 */
+async function refreshFamilyCode() {
+  if (codeLoading.value) {
+    return;
+  }
+  if (familyCode.value?.code) {
+    const ok = await confirm(
+      "旧邀请码会立即失效，已经拿到旧码的家人将无法再用它注册。确定继续？",
+      "重新生成邀请码",
+    );
+    if (!ok) {
+      return;
+    }
+  }
+  codeLoading.value = true;
+  try {
+    familyCode.value = await generateFamilyCode();
+    uni.showToast({ title: "邀请码已生成", icon: "none" });
+  } catch (e) {
+    // 失败原因已由请求层提示
+  } finally {
+    codeLoading.value = false;
+  }
+}
+
+/** 剩余有效期文案 */
+const codeExpireText = computed(() => {
+  const seconds = familyCode.value?.expireSeconds ?? 0;
+  if (!familyCode.value?.code || seconds <= 0) {
+    return "尚未生成或已过期";
+  }
+  const hours = Math.floor(seconds / 3600);
+  if (hours >= 1) {
+    return `剩余 ${hours} 小时`;
+  }
+  return `剩余 ${Math.max(1, Math.floor(seconds / 60))} 分钟`;
+});
 </script>
 
 <template>
@@ -227,10 +275,13 @@ function copyFamilyCode() {
     <template v-else>
       <GlassCard class="code-card">
         <view class="code-card__head">
-          <text class="code-card__label">家庭代码</text>
-          <text class="code-card__value" @click="copyFamilyCode">{{ familyCode ?? "—" }}</text>
+          <text class="code-card__label">家庭邀请码</text>
+          <text class="code-card__value" @click="copyFamilyCode">{{ familyCode?.code ?? "—" }}</text>
         </view>
-        <text class="tiny">把它发给要加入的家人，对方在登录页点「注册」即可加入本家庭</text>
+        <text class="tiny">{{ codeExpireText }}。把它发给要加入的家人，对方在登录页点「注册」即可加入本家庭</text>
+        <GlassButton class="code-card__btn" :disabled="codeLoading" @click="refreshFamilyCode">
+          {{ codeLoading ? "生成中…" : familyCode?.code ? "重新生成" : "生成邀请码" }}
+        </GlassButton>
       </GlassCard>
 
       <GlassButton class="add-btn" @click="startAdd">新增成员</GlassButton>
@@ -335,6 +386,12 @@ function copyFamilyCode() {
   font-weight: 700;
   letter-spacing: 4rpx;
   color: $lg-accent;
+}
+
+.code-card__btn {
+  margin-top: 20rpx;
+  height: 72rpx;
+  font-size: 26rpx;
 }
 
 .add-btn {
