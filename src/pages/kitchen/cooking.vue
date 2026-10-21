@@ -176,7 +176,7 @@ function cookText(order: Order): string {
             :class="{ 'item__done--on': isDone(order, item) }"
             @click.stop="toggleDone(order, item)"
           >
-            <text v-if="isDone(order, item)">✓</text>
+            <text class="item__done-text">{{ isDone(order, item) ? "✓ 已完成" : "标记完成" }}</text>
           </view>
         </view>
 
@@ -254,15 +254,17 @@ function cookText(order: Order): string {
   border-radius: 16rpx;
 }
 
-.item--done {
-  opacity: 0.55;
+/* 已完成的菜只弱化图片与文字，操作按钮保持清晰可点 */
+.item--done .item__cover,
+.item--done .item__main {
+  opacity: 0.5;
 }
 
 .item__cover {
-  width: 76rpx;
-  height: 76rpx;
-  flex: 0 0 76rpx;
-  border-radius: 16rpx;
+  width: 190rpx;
+  height: 190rpx;
+  flex: 0 0 190rpx;
+  border-radius: 24rpx;
   overflow: hidden;
 }
 
@@ -270,12 +272,12 @@ function cookText(order: Order): string {
 .item__cover--ph {
   background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
-  font-size: 18rpx;
+  font-size: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 0 6rpx;
+  padding: 0 8rpx;
   box-sizing: border-box;
 }
 
@@ -312,22 +314,36 @@ function cookText(order: Order): string {
   font-weight: 600;
 }
 
-/* 单道菜的完成勾选 */
+/* 单道菜的完成按钮：未完成是描边胶囊，完成后变实心绿并带对勾 */
 .item__done {
   flex: 0 0 auto;
-  width: 48rpx;
-  height: 48rpx;
-  line-height: 48rpx;
-  text-align: center;
-  border-radius: 50%;
-  border: 1rpx solid $lg-line;
-  color: #fff;
-  font-size: 28rpx;
+  min-width: 128rpx;
+  height: 60rpx;
+  padding: 0 20rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999rpx;
+  border: 2rpx solid $lg-accent-border;
+  background: $lg-fill-2;
+}
+
+.item__done-text {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: $lg-accent;
+  white-space: nowrap;
 }
 
 .item__done--on {
-  background-color: $meal-success;
+  background: $meal-success;
   border-color: $meal-success;
+  box-shadow: 0 10rpx 22rpx rgba(0, 0, 0, 0.12);
+}
+
+.item__done--on .item__done-text {
+  color: #fff;
 }
 
 .order__actions {

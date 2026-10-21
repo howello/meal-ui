@@ -260,20 +260,22 @@ function goConfirm() {
 }
 
 .line__cover {
-  width: 130rpx;
-  height: 130rpx;
-  border-radius: 20rpx;
-  flex: 0 0 130rpx;
+  width: 170rpx;
+  height: 170rpx;
+  border-radius: 22rpx;
+  flex: 0 0 170rpx;
 }
 
 .line__cover--ph {
   background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
-  font-size: 22rpx;
+  font-size: 24rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
+  padding: 0 10rpx;
+  box-sizing: border-box;
 }
 
 .line__body {

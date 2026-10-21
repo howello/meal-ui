@@ -10,6 +10,7 @@ import { useThemeStore } from "@/store/theme";
 import type { Dish, Ingredient } from "@/types";
 import { svgIcon } from "@/utils/icons";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
+import { previewImage } from "@/utils/preview";
 
 const cartStore = useCartStore();
 const userStore = useUserStore();
@@ -152,6 +153,13 @@ function parseJson<T>(raw: string | undefined, fallback: T): T {
   }
 }
 
+/** 点击封面放大预览（仅在存在封面时响应） */
+function openCoverPreview() {
+  if (dish.value?.cover) {
+    previewImage(dish.value.cover);
+  }
+}
+
 function changeCount(delta: number) {
   const next = count.value + delta;
   if (next < 1) {
@@ -183,9 +191,12 @@ function addToCart() {
     </GlassNavBar>
 
     <view v-if="dish" class="detail">
-      <view class="hero">
+      <view class="hero" @click="openCoverPreview">
         <CachedImage v-if="dish.cover" class="hero__img" :src="dish.cover" mode="aspectFill" />
         <view v-else class="hero__img hero__img--ph"></view>
+        <view v-if="dish.cover" class="hero__zoom">
+          <text class="hero__zoom-text">点击查看大图</text>
+        </view>
         <view class="hero__mask">
           <text v-if="dish.categoryNames" class="hero__tag">{{ dish.categoryNames }}</text>
           <text class="hero__name">{{ dish.name }}</text>
@@ -284,14 +295,32 @@ function addToCart() {
 
 .hero {
   position: relative;
-  height: 420rpx;
+  height: 480rpx;
   background: linear-gradient(150deg, $lg-accent-2, $lg-accent);
 }
 
 .hero__img {
   width: 100%;
-  height: 420rpx;
+  height: 480rpx;
   display: block;
+}
+
+/* 封面右上角「可点开放大」提示：半透明胶囊，不遮挡菜品信息 */
+.hero__zoom {
+  position: absolute;
+  top: 20rpx;
+  right: 20rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  background-color: rgba(0, 0, 0, 0.35);
+  border: 1rpx solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.hero__zoom-text {
+  font-size: 20rpx;
+  color: #fff;
 }
 
 .hero__img--ph {

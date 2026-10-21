@@ -9,6 +9,7 @@ import { confirm } from "@/composables/useDialog";
 import { useUserStore } from "@/store/user";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
+import { previewImage } from "@/utils/preview";
 
 const userStore = useUserStore();
 const orderId = ref(0);
@@ -121,7 +122,13 @@ function goReview() {
 
       <view class="card">
         <view v-for="item in order.items || []" :key="item.itemId" class="item">
-          <CachedImage v-if="item.dishCover" class="item__cover" :src="item.dishCover" mode="aspectFill" />
+          <CachedImage
+            v-if="item.dishCover"
+            class="item__cover"
+            :src="item.dishCover"
+            mode="aspectFill"
+            @click="previewImage(item.dishCover)"
+          />
           <view v-else class="item__cover item__cover--ph">{{ item.dishName }}</view>
           <view class="item__main">
             <text class="item__name">{{ item.dishName }}</text>
@@ -240,20 +247,22 @@ function goReview() {
 }
 
 .item__cover {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 18rpx;
-  flex: 0 0 96rpx;
+  width: 208rpx;
+  height: 208rpx;
+  border-radius: 26rpx;
+  flex: 0 0 208rpx;
 }
 
 .item__cover--ph {
   background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
-  font-size: 20rpx;
+  font-size: 22rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
+  padding: 0 8rpx;
+  box-sizing: border-box;
 }
 
 .item__main {

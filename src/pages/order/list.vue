@@ -184,14 +184,15 @@ function doCancel(order: Order) {
 
 .thumbs {
   display: flex;
+  flex-wrap: wrap;
   gap: 12rpx;
   margin: 18rpx 0;
 }
 
 .thumb {
-  width: 92rpx;
-  height: 92rpx;
-  border-radius: 18rpx;
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: 26rpx;
   overflow: hidden;
   background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   display: flex;
@@ -200,15 +201,15 @@ function doCancel(order: Order) {
 }
 
 .thumb__img {
-  width: 92rpx;
-  height: 92rpx;
+  width: 200rpx;
+  height: 200rpx;
 }
 
 .thumb__text {
   color: #fff;
-  font-size: 20rpx;
+  font-size: 22rpx;
   text-align: center;
-  padding: 0 6rpx;
+  padding: 0 8rpx;
 }
 
 .order__actions {

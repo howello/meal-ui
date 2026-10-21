@@ -187,10 +187,10 @@ function waitText(order: Order): string {
 }
 
 .item__cover {
-  width: 76rpx;
-  height: 76rpx;
-  flex: 0 0 76rpx;
-  border-radius: 16rpx;
+  width: 190rpx;
+  height: 190rpx;
+  flex: 0 0 190rpx;
+  border-radius: 24rpx;
   overflow: hidden;
 }
 
@@ -198,12 +198,12 @@ function waitText(order: Order): string {
 .item__cover--ph {
   background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
-  font-size: 18rpx;
+  font-size: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 0 6rpx;
+  padding: 0 8rpx;
   box-sizing: border-box;
 }
 

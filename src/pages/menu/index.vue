@@ -554,22 +554,32 @@ async function pickCategory(categoryKey: number | "signature") {
               class="dish glass"
               @click="openDish(dish)"
             >
-              <CachedImage v-if="dish.cover" class="dish__cover" :src="dish.cover" mode="aspectFill" lazy-load />
-              <view v-else class="dish__cover dish__cover--ph">{{ dish.name }}</view>
+              <view class="dish__cover-wrap">
+                <CachedImage v-if="dish.cover" class="dish__cover" :src="dish.cover" mode="aspectFill" lazy-load />
+                <view v-else class="dish__cover dish__cover--ph">{{ dish.name }}</view>
+              </view>
 
               <view class="dish__body">
-                <text class="dish__name">{{ dish.name }}</text>
-                <text class="dish__desc">{{ dish.description || "—" }}</text>
-                <view class="dish__meta">
-                  <view class="dish__meta-left">
-                    <text v-for="tag in tagList(dish)" :key="tag" class="tag">{{ tag }}</text>
-                    <text class="tiny">{{ dish.duration || "" }}</text>
-                  </view>
+                <view class="dish__head">
+                  <view class="dish__accent"></view>
+                  <text class="dish__name">{{ dish.name }}</text>
                 </view>
-                <!-- 加减控件：不显示价格/金额 -->
-                <view class="stepper" @click.stop>
+                <text class="dish__desc">{{ dish.description || "—" }}</text>
+                <!-- 热量：夹在描述与标签之间，没有热量数据时不占位 -->
+                <view v-if="dish.kcal" class="dish__kcal">
+                  <text class="dish__kcal-ic">🔥</text>
+                  <text class="dish__kcal-text">{{ dish.kcal }}</text>
+                </view>
+                <view v-if="tagList(dish).length" class="dish__tags">
+                  <text v-for="tag in tagList(dish)" :key="tag" class="tag">{{ tag }}</text>
+                </view>
+                <!-- 份数控制条：横跨文字列，减号靠左、加号靠右 -->
+                <view class="dish__foot" @click.stop>
                   <view class="stepper__btn" @click="minus(dish)">−</view>
-                  <text class="stepper__num">{{ dishCount(dish.dishId) }}</text>
+                  <view class="stepper__count">
+                    <text class="stepper__num">{{ dishCount(dish.dishId) }}</text>
+                    <text class="stepper__unit">份</text>
+                  </view>
                   <view class="stepper__btn stepper__btn--plus" @click="plus(dish)">＋</view>
                 </view>
               </view>
@@ -723,91 +733,186 @@ async function pickCategory(categoryKey: number | "signature") {
   font-weight: 500;
 }
 
-/* 菜品卡：玻璃卡，独立成块 */
+/* 菜品卡：玻璃卡，独立成块；封面与内边距适当放大，让菜品图更醒目 */
+/* 菜品卡：左侧图片、右侧文字各占一半；卡片高度由文字列撑开，图片铺满左半边 */
 .dish {
   display: flex;
-  gap: 18rpx;
+  align-items: stretch;
+  gap: 20rpx;
   padding: 20rpx;
-  border-radius: 26rpx;
-  margin-bottom: 16rpx;
+  border-radius: 28rpx;
+  margin-bottom: 18rpx;
   position: relative;
 }
 
+/* 左半区：固定占卡片内容宽度的一半，高度跟随卡片拉伸 */
+.dish__cover-wrap {
+  flex: 0 0 calc(50% - 10rpx);
+  width: calc(50% - 10rpx);
+  min-height: 320rpx;
+  position: relative;
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+
 .dish__cover {
-  width: 120rpx;
-  height: 120rpx;
-  flex: 0 0 120rpx;
-  border-radius: 20rpx;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   display: block;
 }
 
 .dish__cover--ph {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
+  padding: 0 12rpx;
+  box-sizing: border-box;
+}
+
+/* 右半区：文字列占剩余一半，从上到下依次为 菜名 / 描述 / 标签 / 份数控制 */
+.dish__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+  padding: 6rpx 0 2rpx;
+}
+
+/* 菜名行：左侧主题色短竖条作为视觉锚点，右侧菜名单行省略 */
+.dish__head {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  min-width: 0;
+}
+
+.dish__accent {
+  flex: 0 0 6rpx;
+  width: 6rpx;
+  height: 28rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(180deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 4rpx 10rpx $lg-accent-shadow;
 }
 
 .dish__name {
-  display: block;
-  font-size: 28rpx;
+  flex: 1;
+  min-width: 0;
+  font-size: 31rpx;
   font-weight: 700;
+  line-height: 1.35;
   color: $lg-ink;
-}
-
-.dish__desc {
-  display: block;
-  font-size: 22rpx;
-  color: $lg-ink-3;
-  margin: 6rpx 0 10rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.dish__meta {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
+/* 描述自动换行、最多两行，超出省略；比菜名弱一级 */
+.dish__desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  font-size: 23rpx;
+  line-height: 1.5;
+  color: $lg-ink-3;
+  min-height: 69rpx;
 }
 
-.dish__meta-left {
-  display: flex;
+/* 热量：描述与标签之间的一行弱信息，带底色避免和描述混在一起 */
+.dish__kcal {
+  display: inline-flex;
   align-items: center;
+  align-self: flex-start;
+  gap: 6rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 10rpx;
+  background: $lg-fill-2;
+  border: 1rpx solid $lg-border;
+}
+
+.dish__kcal-ic {
+  font-size: 20rpx;
+  line-height: 1;
+}
+
+.dish__kcal-text {
+  font-size: 21rpx;
+  line-height: 1.4;
+  color: $lg-ink-2;
+  font-weight: 500;
+}
+
+/* 标签行：最多展示两个 */
+.dish__tags {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8rpx;
   overflow: hidden;
 }
 
 .tag {
   font-size: 20rpx;
-  padding: 4rpx 14rpx;
+  line-height: 1.6;
+  padding: 2rpx 14rpx;
   border-radius: 999rpx;
   color: $lg-accent;
   background: $lg-accent-soft;
+  border: 1rpx solid $lg-accent-border;
   font-weight: 600;
 }
 
-/* 加减控件：不显示价格/金额 */
-.stepper {
+/* 份数控制条：弱玻璃底槽，两端按钮、中间份数，贴文字列底部 */
+.dish__foot {
   display: flex;
   align-items: center;
-  gap: 14rpx;
-  margin-top: 8rpx;
+  justify-content: space-between;
+  gap: 8rpx;
+  margin-top: auto;
+  padding: 8rpx 10rpx;
+  border-radius: 999rpx;
+  background: $lg-fill-2;
+  border: 1rpx solid $lg-border;
+}
+
+.stepper__count {
+  display: flex;
+  align-items: baseline;
+  gap: 4rpx;
+  flex: 1;
+  justify-content: center;
 }
 
 .stepper__btn {
-  width: 48rpx;
-  height: 48rpx;
-  line-height: 46rpx;
+  width: 52rpx;
+  height: 52rpx;
+  line-height: 50rpx;
   text-align: center;
   border-radius: 50%;
   color: $lg-accent;
-  background: $lg-fill-2;
+  background: $lg-fill;
   border: 1rpx solid $lg-accent-border;
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 700;
 }
 
@@ -819,11 +924,16 @@ async function pickCategory(categoryKey: number | "signature") {
 }
 
 .stepper__num {
-  font-size: 28rpx;
+  font-size: 30rpx;
+  line-height: 1;
   font-weight: 700;
   color: $lg-ink;
-  min-width: 32rpx;
-  text-align: center;
+}
+
+/* 份数单位：小一号的弱色，避免和数字抢视觉 */
+.stepper__unit {
+  font-size: 20rpx;
+  color: $lg-ink-3;
 }
 
 /* 右下角购物车悬浮（件数角标，无金额） */
@@ -870,24 +980,29 @@ async function pickCategory(categoryKey: number | "signature") {
 
 .skeleton-row {
   display: flex;
-  gap: 18rpx;
+  align-items: stretch;
+  gap: 20rpx;
   padding: 20rpx;
-  border-radius: 26rpx;
-  margin-bottom: 16rpx;
+  border-radius: 28rpx;
+  margin-bottom: 18rpx;
   background: $lg-fill-3;
 }
 
+/* 骨架屏左半区与真实卡片同宽，高度跟随右侧占位行撑开 */
 .skeleton-row__ph {
-  width: 120rpx;
-  height: 120rpx;
-  flex: 0 0 120rpx;
-  border-radius: 20rpx;
+  flex: 0 0 calc(50% - 10rpx);
+  width: calc(50% - 10rpx);
+  min-height: 320rpx;
+  border-radius: 24rpx;
 }
 
 .skeleton-row__body {
   flex: 1;
   min-width: 0;
-  padding-top: 10rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding-top: 6rpx;
 }
 
 .skeleton-row__line {

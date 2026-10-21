@@ -200,21 +200,22 @@ async function submit() {
 }
 
 .item__cover {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 18rpx;
-  flex: 0 0 88rpx;
+  width: 200rpx;
+  height: 200rpx;
+  border-radius: 26rpx;
+  flex: 0 0 200rpx;
 }
 
 .item__cover--ph {
   background: linear-gradient(135deg, $lg-accent-2, $lg-accent);
   color: #fff;
-  font-size: 20rpx;
+  font-size: 22rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 0 6rpx;
+  padding: 0 8rpx;
+  box-sizing: border-box;
 }
 
 .item__main {
