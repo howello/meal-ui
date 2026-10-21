@@ -2,8 +2,8 @@
     "name" : "吃了么",
     "appid" : "__UNI__091B4F4",
     "description" : "家庭点餐端",
-    "versionName" : "1.0.18",
-    "versionCode" : 121,
+    "versionName" : "1.0.19",
+    "versionCode" : 122,
     "transformPx" : false,
     /* 5+App特有相关 */
     "app-plus" : {
