@@ -1,9 +1,9 @@
 /**
  * 点餐区菜单本地缓存 key（分类 + 全量上架菜品）
  *
- * 带版本后缀：菜品列表开始只缓存上架菜品后递增版本，让旧版本缓存（可能含已下架菜）自然失效。
+ * 带版本后缀：新增「最近 5 天」分组后递增版本，让不含 createTime 的旧缓存自然失效。
  */
-export const MENU_CACHE_KEY = "meal-menu-cache-v2";
+export const MENU_CACHE_KEY = "meal-menu-cache-v3";
 
 /** 菜品变更标记：编辑保存后置位，点餐区下次显示时强制重拉 */
 const MENU_DIRTY_KEY = "meal-menu-dirty";

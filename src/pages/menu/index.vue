@@ -13,6 +13,21 @@ import { consumeMenuDirty, MENU_CACHE_KEY } from "@/utils/menuCache";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 import type { Category, Dish } from "@/types";
 
+/** 点餐区前端临时分组：最近上新 / 招牌，均不落库 */
+type SpecialGroupKey = "recent" | "signature";
+
+/** 右侧菜品流与左侧分类栏共用的分组结构 */
+interface MenuGroup {
+  /** 分组唯一 key（最近 / 招牌 / 分类ID字符串） */
+  key: string;
+  /** 主类 ID；最近与招牌为空 */
+  categoryId?: number;
+  /** 左栏与分组标题展示名 */
+  label: string;
+  icon: string;
+  items: Dish[];
+}
+
 const inst = getCurrentInstance();
 const userStore = useUserStore();
 const cartStore = useCartStore();
@@ -22,7 +37,7 @@ const categories = ref<Category[]>([]);
 const dishes = ref<Dish[]>([]);
 /** 招牌推荐位：近 90 天已完成订单 Top 3（不是分类，不落库、不可写入） */
 const signatures = ref<Dish[]>([]);
-const activeCategoryId = ref<number | "signature" | undefined>(undefined);
+const activeCategoryId = ref<number | SpecialGroupKey | undefined>(undefined);
 const keyword = ref("");
 const loading = ref(false);
 const refreshing = ref(false);
@@ -86,6 +101,14 @@ onShow(async () => {
   }
   // 其余情况：读本地缓存秒显；只有首次无缓存时才发请求
   await loadFromCacheOrNetwork();
+});
+
+onHide(() => {
+  resetPickState();
+});
+
+onUnload(() => {
+  resetPickState();
 });
 
 /* ============ 本地缓存：命中即读、仅下拉刷新才重新拉取 ============ */
@@ -180,6 +203,7 @@ async function loadCategories() {
     if (
       activeCategoryId.value !== undefined &&
       activeCategoryId.value !== "signature" &&
+      activeCategoryId.value !== "recent" &&
       !res.rows.some((item) => item.categoryId === activeCategoryId.value)
     ) {
       activeCategoryId.value = undefined;
@@ -225,27 +249,54 @@ function categoryIcon(cat: Category, index: number): string {
   return icon || DEFAULT_CATEGORY_ICONS[index % DEFAULT_CATEGORY_ICONS.length];
 }
 
-/* 每个分类的分组：categories 顺序为基准，菜品按 categoryIds 归组
-   （left 分类栏与右侧分组一一对应，保证左右联动索引一致）
-   分类是唯一主类，一道菜只会出现在一个主类分组里。
-   招牌是推荐位：单独一组放在最前，且招牌里的菜从主类分组中移除，避免重复列菜；
-   搜索态不展示招牌，也不去重（只按关键词展示命中结果）。
-   备注：categoryId 可能被后端序列化为数字或字符串，统一字符串化后比较，避免类型不匹配把整组过滤成空 */
-const signatureIds = computed(() => signatures.value.map((dish) => String(dish.dishId)));
+/** 最近上新窗口（自然日，含今天） */
+const RECENT_DAYS = 5;
 
-const groups = computed(() => {
+/** 把后端 yyyy-MM-dd HH:mm:ss 解析为时间戳；非法或缺失返回 NaN */
+function parseCreateTime(value?: string): number {
+  if (!value) {
+    return Number.NaN;
+  }
+  return new Date(value.replace(" ", "T")).getTime();
+}
+
+/* 最近 5 天新增菜品：纯前端派生，不落库、不改分类归属，也不从原分类中移除。
+   以自然日计算：含今天在内的 5 个自然日，避免「5 × 24 小时」在凌晨出现理解偏差；
+   按创建时间倒序后只展示最新 3 道。 */
+const recentDishes = computed(() => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (RECENT_DAYS - 1));
+  const startTime = start.getTime();
+  return dishes.value
+    .filter((dish) => {
+      const created = parseCreateTime(dish.createTime);
+      return !Number.isNaN(created) && created >= startTime;
+    })
+    .sort((a, b) => {
+      const diff = parseCreateTime(b.createTime) - parseCreateTime(a.createTime);
+      return diff || b.dishId - a.dishId;
+    })
+    .slice(0, 3);
+});
+
+/* 每个分类的分组：categories 顺序为基准，菜品按 categoryIds 归组
+   （左侧分类栏与右侧分组一一对应，保证左右联动索引一致）。
+   分类是唯一主类，一道菜只会出现在一个主类分组里。
+   「最近」与「招牌」都是前端推荐位：不落库，也不从原分类中剔除；
+   搜索态只展示主类命中结果，不展示推荐位。
+   备注：categoryId 可能被后端序列化为数字或字符串，统一字符串化后比较，避免类型不匹配把整组过滤成空 */
+const groups = computed<MenuGroup[]>(() => {
   const searched = !!keyword.value.trim();
-  const list: { key: string; cat: Category | null; icon: string; items: Dish[] }[] = [];
-  // 招牌分组：有数据且不在搜索态时展示；分类栏首项与它一一对应
+  const list: MenuGroup[] = [];
+  if (!searched && recentDishes.value.length) {
+    list.push({ key: "recent", label: "最近", icon: "✨", items: recentDishes.value });
+  }
   if (!searched && signatures.value.length) {
-    list.push({ key: "signature", cat: null, icon: "⭐", items: signatures.value });
+    list.push({ key: "signature", label: "招牌", icon: "⭐", items: signatures.value });
   }
   categories.value.forEach((cat, index) => {
     const items = dishes.value.filter((d) => {
-      // 招牌里已经列过的菜，不再出现在主类分组
-      if (!searched && signatureIds.value.includes(String(d.dishId))) {
-        return false;
-      }
       // 优先按 categoryIds 归组；后端可能把 bigint 序列化成字符串，统一字符串化比较
       const ids = (d.categoryIds || []).map((id) => String(id));
       if (ids.includes(String(cat.categoryId))) {
@@ -254,14 +305,20 @@ const groups = computed(() => {
       // 退而按冗余 categoryNames 兜底，避免 categoryIds 缺失时整组被过滤成空
       return (d.categoryNames || "").trim() === (cat.name || "").trim();
     });
-    list.push({ key: String(cat.categoryId), cat, icon: categoryIcon(cat, index), items });
+    list.push({
+      key: String(cat.categoryId),
+      categoryId: cat.categoryId,
+      label: cat.name,
+      icon: categoryIcon(cat, index),
+      items,
+    });
   });
   return list;
 });
 
-/** 分组唯一 key：招牌用固定 key，主类用分类ID */
-function groupKey(g: { key: string }): string {
-  return g.key;
+/** 把分组还原为左侧点击使用的 key：推荐位用固定值，主类用 categoryId */
+function groupTarget(g: MenuGroup): number | SpecialGroupKey {
+  return g.categoryId ?? (g.key as SpecialGroupKey);
 }
 
 /* 没有菜品时的空态 */
@@ -312,6 +369,23 @@ function goCart() {
 }
 
 /* ============ 左右联动（用 getBoundingClientRect 计算，不用 offsetTop/scrollIntoView） ============ */
+/** 点击分类后的滚动锁定时长（ms）：覆盖 H5 的 300ms 平滑动画，期间不让滚动事件反改高亮 */
+const PICK_SETTLE_MS = 400;
+
+/** 清理点击分类留下的滚动锁与定时器 */
+function resetPickState() {
+  categoryPickInFlight = false;
+  railIntoView.value = "";
+  if (categoryPickTimer !== null) {
+    clearTimeout(categoryPickTimer);
+    categoryPickTimer = null;
+  }
+  if (rafId !== null) {
+    cancelFrame(rafId);
+    rafId = null;
+  }
+}
+
 /** 拿到右侧滚动容器与全部分组的 boundingClientRect（用 rect 定位，不依赖 offsetTop） */
 function measureGroups(): Promise<{ box: UniApp.NodeInfo | null; rects: UniApp.NodeInfo[] }> {
   return new Promise((resolve) => {
@@ -348,23 +422,26 @@ function syncRail(index: number) {
   });
 }
 
-/** 根据「组顶 ≤ 容器可视顶 + 阈值」的最后一个分组，滚动到左栏高亮。
+/** 分组边界容差（px）：滚动位置取整常让目标组停在可视顶下方不到 1px，
+ *  不留容差会错误高亮上一组。 */
+const ACTIVE_GROUP_TOLERANCE = 6;
+
+/** 根据「组顶 ≤ 容器可视顶 + 容差」的最后一个分组，滚动到左栏高亮。
  *  atBottom 为真时（已滚到底）直接高亮最后一个分组：最后一个分组往往顶不到容器顶，
  *  否则点它/滚到底都会错误地高亮倒数第二个分组。 */
 function computeActive(rects: UniApp.NodeInfo[], boxTop: number, atBottom = false) {
-  const threshold = 0; // 只在分组顶部到达容器顶部时切换，避免提前高亮
   let idx = -1;
   if (atBottom && rects.length > 0) {
     idx = rects.length - 1;
   } else {
     rects.forEach((r, i) => {
-      if (r && r.top !== undefined && r.top <= boxTop + threshold) {
+      if (r && r.top !== undefined && r.top <= boxTop + ACTIVE_GROUP_TOLERANCE) {
         idx = i;
       }
     });
   }
   const g = groups.value[idx];
-  const target = g ? (g.cat ? g.cat.categoryId : "signature") : undefined;
+  const target = g ? groupTarget(g) : undefined;
   if (target !== activeCategoryId.value) {
     activeCategoryId.value = target;
     syncRail(idx);
@@ -383,7 +460,7 @@ async function measureAndHighlight(retry = 0) {
         measureAndHighlight(retry + 1);
       }, 50);
     } else if (groups.value.length > 0) {
-      activeCategoryId.value = groups.value[0].cat ? groups.value[0].cat.categoryId : "signature";
+      activeCategoryId.value = groupTarget(groups.value[0]);
     }
     return;
   }
@@ -418,9 +495,9 @@ function onDishScroll(e: { detail?: { scrollTop?: number; scrollHeight?: number 
   });
 }
 
-/** 点击左侧分类（或「招牌」）：平滑滚动到对应分组顶部，并同步高亮 */
-async function pickCategory(categoryKey: number | "signature") {
-  const g = groups.value.find((item) => (item.cat ? item.cat.categoryId : "signature") === categoryKey);
+/** 点击左侧分类（或推荐位）：平滑滚动到对应分组顶部，并同步高亮 */
+async function pickCategory(categoryKey: number | SpecialGroupKey) {
+  const g = groups.value.find((item) => groupTarget(item) === categoryKey);
   if (!g) {
     return;
   }
@@ -465,9 +542,10 @@ async function pickCategory(categoryKey: number | "signature") {
     if (version === categoryPickVersion) {
       categoryPickInFlight = false;
       categoryPickTimer = null;
-      measureAndHighlight();
+      // 点击定位以用户点选的分类为准。这里不能再按几何位置重算：
+      // 平滑滚动结束时的亚像素误差会把高亮误判成上一组。
     }
-  }, 450);
+  }, PICK_SETTLE_MS);
 }
 </script>
 
@@ -500,14 +578,14 @@ async function pickCategory(categoryKey: number | "signature") {
       >
         <view
           v-for="(g, i) in groups"
-          :key="groupKey(g)"
+          :key="g.key"
           class="rail-item"
-          :class="{ 'rail-item--on': (g.cat ? g.cat.categoryId : 'signature') === activeCategoryId }"
+          :class="{ 'rail-item--on': groupTarget(g) === activeCategoryId }"
           :id="'rail-' + i"
-          @click="pickCategory(g.cat ? g.cat.categoryId : 'signature')"
+          @click="pickCategory(groupTarget(g))"
         >
           <text class="rail-item__ic">{{ g.icon }}</text>
-          <text class="rail-item__name">{{ g.cat ? g.cat.name : "招牌" }}</text>
+          <text class="rail-item__name">{{ g.label }}</text>
         </view>
         <!-- 底部为悬浮 TabBar 让位：否则最后一个分类会被 TabBar 压住看不见 -->
         <view class="rail-tail"></view>
@@ -540,11 +618,11 @@ async function pickCategory(categoryKey: number | "signature") {
         <view v-else-if="!dishes.length" class="empty">{{ emptyText }}</view>
 
         <template v-else>
-          <view v-for="g in groups" :key="groupKey(g)" class="menu-group">
+          <view v-for="g in groups" :key="g.key" class="menu-group">
             <!-- 吸顶分组标题 -->
             <view class="sec-tit">
               <text class="sec-tit__ic">{{ g.icon }}</text>
-              <text class="sec-tit__name">{{ g.cat ? g.cat.name : "招牌" }}</text>
+              <text class="sec-tit__name">{{ g.label }}</text>
               <text class="sec-tit__cnt">{{ g.items.length }} 道</text>
             </view>
 
