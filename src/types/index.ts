@@ -44,6 +44,8 @@ export interface Dish {
   sort?: number;
   /** 来源（0自建 1新菜提案通过） */
   source?: string;
+  /** 创建时间（点餐端用于计算最近 5 天上新，不额外入库） */
+  createTime?: string;
   /** 近 90 天被点份数（仅招牌接口返回，不落库） */
   orderCount?: number;
   /** 前端本地字段：购物车里的份数 */
