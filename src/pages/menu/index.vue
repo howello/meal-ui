@@ -4,6 +4,7 @@ import { computed, getCurrentInstance, nextTick, ref } from "vue";
 import { listCategory, listDish, listSignatureDishes } from "@/api/dish";
 import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
+import KitchenMessageButton from "@/components/KitchenMessageButton.vue";
 import TabBar from "@/components/TabBar.vue";
 import { useCartStore } from "@/store/cart";
 import { useUserStore } from "@/store/user";
@@ -54,6 +55,12 @@ let measureVersion = 0;
 let categoryPickVersion = 0;
 let categoryPickInFlight = false;
 let categoryPickTimer: ReturnType<typeof setTimeout> | null = null;
+/** 搜索定位目标：菜品 ID 与当前搜索关键词，用于模板标记与滚动校准 */
+const searchTargetId = ref<number | null>(null);
+const searchTargetGroupKey = ref("");
+const searchTargetKeyword = ref("");
+/** 搜索结果滚动定位中的标记：与分类点击共用滚动锁，避免滚动事件误改高亮 */
+let searchPickVersion = 0;
 
 /* 小程序（微信/支付宝等）没有全局 requestAnimationFrame，
    统一封装：有 rAF 就用 rAF，没有就退回 setTimeout，避免滚动回调直接抛错。 */
@@ -93,8 +100,8 @@ onShow(async () => {
     menuInitialized = false;
     uni.removeStorageSync(MENU_CACHE_KEY);
   }
-  // 已加载过全量菜单且不在搜索态（如从菜品详情返回）：直接用内存数据，不重复请求
-  if (menuInitialized && !keyword.value) {
+  // 已加载过全量菜单（如从菜品详情返回）：直接用内存数据，不重复请求
+  if (menuInitialized) {
     await nextTick();
     await measureAndHighlight();
     return;
@@ -221,7 +228,7 @@ async function loadDishes(showSkeleton = false) {
     loading.value = true;
   }
   try {
-    const res = await listDish({ keyword: keyword.value || undefined });
+    const res = await listDish({});
     dishes.value = res.rows;
   } catch (e) {
     dishes.value = [];
@@ -283,16 +290,15 @@ const recentDishes = computed(() => {
 /* 每个分类的分组：categories 顺序为基准，菜品按 categoryIds 归组
    （左侧分类栏与右侧分组一一对应，保证左右联动索引一致）。
    分类是唯一主类，一道菜只会出现在一个主类分组里。
-   「最近」与「招牌」都是前端推荐位：不落库，也不从原分类中剔除；
-   搜索态只展示主类命中结果，不展示推荐位。
+   「最近」与「招牌」都是前端推荐位：不落库，也不从原分类中剔除。
+   搜索只负责定位，不改变这里展示的分组与菜品。
    备注：categoryId 可能被后端序列化为数字或字符串，统一字符串化后比较，避免类型不匹配把整组过滤成空 */
 const groups = computed<MenuGroup[]>(() => {
-  const searched = !!keyword.value.trim();
   const list: MenuGroup[] = [];
-  if (!searched && recentDishes.value.length) {
+  if (recentDishes.value.length) {
     list.push({ key: "recent", label: "最近", icon: "✨", items: recentDishes.value });
   }
-  if (!searched && signatures.value.length) {
+  if (signatures.value.length) {
     list.push({ key: "signature", label: "招牌", icon: "⭐", items: signatures.value });
   }
   categories.value.forEach((cat, index) => {
@@ -323,11 +329,188 @@ function groupTarget(g: MenuGroup): number | SpecialGroupKey {
 
 /* 没有菜品时的空态 */
 const emptyText = computed(() =>
-  loading.value ? "" : keyword.value ? "没有找到相关菜品" : "还没有菜，去管理端点几道吧",
+  loading.value ? "" : "还没有菜，去管理端点几道吧",
 );
 
-function onSearch() {
-  loadDishes(true);
+/**
+ * 在当前已加载的全量菜品中搜索并定位
+ *
+ * 搜索不改动列表数据、分组或推荐位，只在右侧菜品流中滚到第一个命中的菜品，
+ * 命中范围与后端 keyword 规则一致：菜名或食材包含关键词（忽略大小写）。
+ */
+async function onSearch() {
+  const query = keyword.value.trim();
+  if (!query) {
+    searchTargetId.value = null;
+    searchTargetGroupKey.value = "";
+    searchTargetKeyword.value = "";
+    return;
+  }
+  const lower = query.toLowerCase();
+  const matches = (text?: string): boolean => (text || "").toLowerCase().includes(lower);
+  let target: { group: MenuGroup; groupIndex: number; dish: Dish } | null = null;
+  // 推荐位与分类分组会重复出现同一道菜，优先定位「最近 / 招牌」之外的原始分类，
+  // 避免搜索命中后用户看到的是同一道菜在推荐位里的副本。
+  const indexedGroups = groups.value.map((group, groupIndex) => ({ group, groupIndex }));
+  const orderedGroups = [
+    ...indexedGroups.filter(({ group }) => group.key !== "recent" && group.key !== "signature"),
+    ...indexedGroups.filter(({ group }) => group.key === "recent" || group.key === "signature"),
+  ];
+  for (const { group, groupIndex } of orderedGroups) {
+    const dish = group.items.find((item) => matches(item.name) || matches(item.ingredients));
+    if (dish) {
+      target = { group, groupIndex, dish };
+      break;
+    }
+  }
+  if (!target) {
+    searchTargetId.value = null;
+    searchTargetGroupKey.value = "";
+    searchTargetKeyword.value = query;
+    uni.showToast({ title: "没有找到相关菜品", icon: "none" });
+    return;
+  }
+  searchTargetId.value = target.dish.dishId;
+  searchTargetGroupKey.value = target.group.key;
+  searchTargetKeyword.value = query;
+  activeCategoryId.value = groupTarget(target.group);
+  syncRail(target.groupIndex);
+  await scrollToDish(target.dish.dishId, target.group.key, target.groupIndex);
+}
+
+/**
+ * 平滑滚动到指定菜品卡片
+ *
+ * 先滚到目标菜品所属分组，等分组进入渲染视野后再按菜品相对容器位置二次校准。
+ * 这样即使目标菜在很长列表的下方，也不会因为商品尚未渲染而测不到节点。
+ * 吸顶分组标题会遮住滚动区顶部，因此定位时额外扣掉标题高度。
+ */
+async function scrollToDish(dishId: number, groupKey: string, groupIndex: number) {
+  const proxy = inst?.proxy;
+  if (!proxy || groupIndex < 0) {
+    return;
+  }
+  const targetGroup = groups.value[groupIndex];
+  if (!targetGroup) {
+    return;
+  }
+  activeCategoryId.value = groupTarget(targetGroup);
+  syncRail(groupIndex);
+  categoryPickInFlight = true;
+  if (categoryPickTimer !== null) {
+    clearTimeout(categoryPickTimer);
+    categoryPickTimer = null;
+  }
+  if (rafId !== null) {
+    cancelFrame(rafId);
+    rafId = null;
+  }
+  const version = ++searchPickVersion;
+
+  // 第一段：按分组定位，保证目标分组与菜品已进入可视区附近并被渲染
+  const groupMeasure = await measureGroupTarget(groupIndex, proxy);
+  if (version !== searchPickVersion) {
+    return;
+  }
+  if (!groupMeasure) {
+    categoryPickInFlight = false;
+    return;
+  }
+  const groupTop = Math.max(0, scrolledTop + groupMeasure.groupTop - groupMeasure.boxTop);
+  scrollTo.value = 0;
+  await nextTick();
+  scrollTo.value = groupTop;
+  await waitForScrollSettle();
+
+  // 第二段：分组渲染后定位到具体菜品，顶部留出吸顶标题高度
+  await nextTick();
+  await waitForElementRender();
+  const dishMeasure = await measureDishTarget(dishId, groupKey, proxy);
+  if (version !== searchPickVersion) {
+    return;
+  }
+  if (dishMeasure) {
+    const dishTop = Math.max(0, scrolledTop + dishMeasure.dishTop - dishMeasure.boxTop - dishMeasure.headerHeight - 8);
+    scrollTo.value = 0;
+    await nextTick();
+    scrollTo.value = dishTop;
+  }
+  categoryPickTimer = setTimeout(() => {
+    if (version === searchPickVersion) {
+      categoryPickInFlight = false;
+      categoryPickTimer = null;
+    }
+  }, PICK_SETTLE_MS);
+}
+
+/** 等待上一次受控滚动完成；返回的 Promise 不接受取消，由版本号丢弃迟到结果 */
+function waitForScrollSettle(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, PICK_SETTLE_MS);
+  });
+}
+
+/** 等目标分组在下一帧完成渲染，避免刚滚过去就测量时查不到菜品节点 */
+function waitForElementRender(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 50);
+  });
+}
+
+/** 测量目标分组与滚动容器的位置，用于长列表中的第一段滚动 */
+function measureGroupTarget(
+  groupIndex: number,
+  proxy: NonNullable<ReturnType<typeof getCurrentInstance>>["proxy"],
+): Promise<{ boxTop: number; groupTop: number } | null> {
+  return new Promise((resolve) => {
+    const query = uni.createSelectorQuery().in(proxy as unknown as Record<string, unknown>);
+    query.select(".menu-dish").boundingClientRect();
+    query.selectAll(".menu-group").boundingClientRect();
+    query.exec((res: (UniApp.NodeInfo | UniApp.NodeInfo[] | null)[]) => {
+      const box = (Array.isArray(res[0]) ? res[0][0] : res[0]) || null;
+      const groupRects = Array.isArray(res[1]) ? res[1] : [];
+      const groupRect = groupRects[groupIndex] || null;
+      if (!box || !groupRect || box.top === undefined || groupRect.top === undefined) {
+        resolve(null);
+        return;
+      }
+      resolve({ boxTop: box.top, groupTop: groupRect.top });
+    });
+  });
+}
+
+/** 测量目标菜品与滚动容器的位置，用于第二段精确校准 */
+function measureDishTarget(
+  dishId: number,
+  groupKey: string,
+  proxy: NonNullable<ReturnType<typeof getCurrentInstance>>["proxy"],
+): Promise<{ boxTop: number; dishTop: number; headerHeight: number } | null> {
+  return new Promise((resolve) => {
+    const query = uni.createSelectorQuery().in(proxy as unknown as Record<string, unknown>);
+    query.select(".menu-dish").boundingClientRect();
+    query.select(`#dish-${groupKey}-${dishId}`).boundingClientRect();
+    query.select(`#group-${groupKey}`).boundingClientRect();
+    query.exec((res: (UniApp.NodeInfo | UniApp.NodeInfo[] | null)[]) => {
+      const box = (Array.isArray(res[0]) ? res[0][0] : res[0]) || null;
+      const dish = (Array.isArray(res[1]) ? res[1][0] : res[1]) || null;
+      const group = (Array.isArray(res[2]) ? res[2][0] : res[2]) || null;
+      if (!box || !dish || box.top === undefined || dish.top === undefined) {
+        resolve(null);
+        return;
+      }
+      resolve({ boxTop: box.top, dishTop: dish.top, headerHeight: group?.height || 0 });
+    });
+  });
+}
+
+/** 当前搜索命中的菜品；输入变化后旧高亮自动消失 */
+function isSearchHit(group: MenuGroup, dish: Dish): boolean {
+  return (
+    searchTargetId.value === dish.dishId &&
+    searchTargetGroupKey.value === group.key &&
+    !!searchTargetKeyword.value &&
+    keyword.value.trim().toLowerCase() === searchTargetKeyword.value.toLowerCase()
+  );
 }
 
 function tagList(dish: Dish): string[] {
@@ -551,7 +734,11 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
 
 <template>
   <view class="app-fixed app-fixed--topnav" :class="themeRootClass">
-    <GlassNavBar title="今天吃什么" />
+    <GlassNavBar title="今天吃什么">
+      <template #right>
+        <KitchenMessageButton />
+      </template>
+    </GlassNavBar>
 
     <view class="app-fixed__head">
       <view class="search glass">
@@ -618,7 +805,7 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
         <view v-else-if="!dishes.length" class="empty">{{ emptyText }}</view>
 
         <template v-else>
-          <view v-for="g in groups" :key="g.key" class="menu-group">
+          <view v-for="g in groups" :id="`group-${g.key}`" :key="g.key" class="menu-group">
             <!-- 吸顶分组标题 -->
             <view class="sec-tit">
               <text class="sec-tit__ic">{{ g.icon }}</text>
@@ -628,8 +815,10 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
 
             <view
               v-for="dish in g.items"
+              :id="`dish-${g.key}-${dish.dishId}`"
               :key="dish.dishId"
               class="dish glass"
+              :class="{ 'dish--search-hit': isSearchHit(g, dish) }"
               @click="openDish(dish)"
             >
               <view class="dish__cover-wrap">
@@ -821,6 +1010,25 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
   border-radius: 28rpx;
   margin-bottom: 18rpx;
   position: relative;
+}
+
+/* 搜索结果命中高亮：只强调定位到的菜品，不改变列表内容与顺序 */
+.dish--search-hit {
+  border-color: $lg-accent-border;
+  box-shadow: 0 0 0 4rpx $lg-accent-soft, $lg-shadow;
+  animation: search-hit-pulse 1.2s ease-out;
+}
+
+@keyframes search-hit-pulse {
+  0% {
+    box-shadow: 0 0 0 0 $lg-accent-border, $lg-shadow;
+  }
+  60% {
+    box-shadow: 0 0 0 10rpx $lg-accent-soft, $lg-shadow;
+  }
+  100% {
+    box-shadow: 0 0 0 4rpx $lg-accent-soft, $lg-shadow;
+  }
 }
 
 /* 左半区：固定占卡片内容宽度的一半，高度跟随卡片拉伸 */

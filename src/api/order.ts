@@ -32,6 +32,13 @@ export function kitchenOrders(params: { status?: string; pageNum?: number; pageS
   return requestPage<Order>({ url: "/meal/order/kitchen/list", data: params });
 }
 
+/** 厨师工作台待办汇总：待接单与制作中订单数，用于消息入口角标 */
+export function kitchenOrderSummary() {
+  return request<{ pendingCount: number; cookingCount: number }>({
+    url: "/meal/order/kitchen/summary",
+  });
+}
+
 /** 接单 */
 export function acceptOrder(orderId: number) {
   return requestVoid({ url: `/meal/order/accept/${orderId}`, method: "PUT" });

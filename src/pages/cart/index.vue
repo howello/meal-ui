@@ -6,6 +6,7 @@ import CachedImage from "@/components/CachedImage.vue";
 import GlassButton from "@/components/GlassButton.vue";
 import GlassCard from "@/components/GlassCard.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
+import KitchenMessageButton from "@/components/KitchenMessageButton.vue";
 import TabBar from "@/components/TabBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { useCartStore } from "@/store/cart";
@@ -160,7 +161,10 @@ function goConfirm() {
   <view class="app-fixed app-fixed--topnav" :class="themeRootClass">
     <GlassNavBar title="购物车">
       <template #right>
-        <text v-if="!cartStore.isEmpty" class="nav-clear" @click="clearAll">清空</text>
+        <view class="nav-actions">
+          <text v-if="!cartStore.isEmpty" class="nav-clear" @click="clearAll">清空</text>
+          <KitchenMessageButton />
+        </view>
       </template>
     </GlassNavBar>
 
@@ -243,6 +247,13 @@ function goConfirm() {
 </template>
 
 <style lang="scss" scoped>
+/* 导航栏右侧操作区：清空与厨师消息入口横向排列 */
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+}
+
 /* 导航栏右侧「清空」：负外边距抵消内边距，视觉位置不变，点击区域放大到 68rpx 高 */
 .nav-clear {
   display: inline-block;
