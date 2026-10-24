@@ -45,6 +45,11 @@ const refreshing = ref(false);
 /* 右侧滚动容器 .menu-dishes 的受控滚动目标（海底捞式：点左侧后平滑跳到该分组顶）
    滚动事件驱动的高亮在 computeActiveGroup 中更新 */
 const scrollTo = ref(0);
+/**
+ * 每次定位使用独立递增的目标值，保证 scroll-view 的受控滚动一定重新触发。
+ * 相同 scroll-top 重复赋值在 uni-app H5 中不会触发 watch。
+ */
+let scrollSequence = 0;
 /* 当前容器内已滚动像素（来自 scroll 事件，用于定位计算） */
 let scrolledTop = 0;
 /* 滚动内容总高（来自 scroll 事件，用于判断是否已滚到底） */
@@ -407,34 +412,39 @@ async function scrollToDish(dishId: number, groupKey: string, groupIndex: number
   }
   const version = ++searchPickVersion;
 
-  // 第一段：按分组定位，保证目标分组与菜品已进入可视区附近并被渲染
-  const groupMeasure = await measureGroupTarget(groupIndex, proxy);
+  // 目标菜品尚未渲染时，先把它所属分组带入视口；随后按菜品实测位置定位。
+  // 每次定位都使用新的受控目标值，确保 scroll-view 的 watch 一定触发。
+  let measure = await measureDishTarget(dishId, groupKey, proxy);
   if (version !== searchPickVersion) {
     return;
   }
-  if (!groupMeasure) {
+  if (!measure) {
+    const groupMeasure = await measureGroupTarget(groupIndex, proxy);
+    if (version !== searchPickVersion) {
+      return;
+    }
+    if (!groupMeasure) {
+      categoryPickInFlight = false;
+      return;
+    }
+    const groupTop = Math.max(0, scrolledTop + groupMeasure.groupTop - groupMeasure.boxTop);
+    await applyScrollTop(groupTop);
+    await waitForElementRender();
+    measure = await measureDishTarget(dishId, groupKey, proxy);
+    if (version !== searchPickVersion) {
+      return;
+    }
+  }
+  if (!measure) {
     categoryPickInFlight = false;
     return;
   }
-  const groupTop = Math.max(0, scrolledTop + groupMeasure.groupTop - groupMeasure.boxTop);
-  scrollTo.value = 0;
-  await nextTick();
-  scrollTo.value = groupTop;
-  await waitForScrollSettle();
 
-  // 第二段：分组渲染后定位到具体菜品，顶部留出吸顶标题高度
-  await nextTick();
-  await waitForElementRender();
-  const dishMeasure = await measureDishTarget(dishId, groupKey, proxy);
-  if (version !== searchPickVersion) {
-    return;
-  }
-  if (dishMeasure) {
-    const dishTop = Math.max(0, scrolledTop + dishMeasure.dishTop - dishMeasure.boxTop - dishMeasure.headerHeight - 8);
-    scrollTo.value = 0;
-    await nextTick();
-    scrollTo.value = dishTop;
-  }
+  // 只走一次平滑定位：scroll-view 的平滑动画期间继续覆盖 scroll-top，
+  // 会让最终位置停在动画起点附近。定位后不再二次写入同一个滚动容器。
+  const dishTop = Math.max(0, scrolledTop + measure.dishTop - measure.boxTop - measure.headerHeight);
+  await applyScrollTop(dishTop);
+
   categoryPickTimer = setTimeout(() => {
     if (version === searchPickVersion) {
       categoryPickInFlight = false;
@@ -443,17 +453,28 @@ async function scrollToDish(dishId: number, groupKey: string, groupIndex: number
   }, PICK_SETTLE_MS);
 }
 
-/** 等待上一次受控滚动完成；返回的 Promise 不接受取消，由版本号丢弃迟到结果 */
-function waitForScrollSettle(): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, PICK_SETTLE_MS);
-  });
+/**
+ * 设置受控滚动值。
+ *
+ * uni-app 的 scroll-view 只在 scroll-top 数值变化时执行滚动；
+ * 大列表连续搜索到同一道菜时，必须换一个微小但不同的值才会再次定位。
+ * 归零后等待下一帧，再赋目标值，确保每次定位都是全新的一轮平滑滚动。
+ *
+ * @param value 目标滚动距离（px）
+ */
+async function applyScrollTop(value: number) {
+  const next = Math.max(0, Math.round(value));
+  scrollSequence = (scrollSequence + 1) % 1000;
+  scrollTo.value = 0;
+  await nextTick();
+  scrollTo.value = next + scrollSequence / 1000;
+  await nextTick();
 }
 
-/** 等目标分组在下一帧完成渲染，避免刚滚过去就测量时查不到菜品节点 */
+/** 等目标分组完成一次渲染，长列表节点在下一帧前可能还查不到 */
 function waitForElementRender(): Promise<void> {
   return new Promise((resolve) => {
-    setTimeout(resolve, 50);
+    setTimeout(resolve, 80);
   });
 }
 
@@ -489,16 +510,16 @@ function measureDishTarget(
     const query = uni.createSelectorQuery().in(proxy as unknown as Record<string, unknown>);
     query.select(".menu-dish").boundingClientRect();
     query.select(`#dish-${groupKey}-${dishId}`).boundingClientRect();
-    query.select(`#group-${groupKey}`).boundingClientRect();
+    query.select(`#group-header-${groupKey}`).boundingClientRect();
     query.exec((res: (UniApp.NodeInfo | UniApp.NodeInfo[] | null)[]) => {
       const box = (Array.isArray(res[0]) ? res[0][0] : res[0]) || null;
       const dish = (Array.isArray(res[1]) ? res[1][0] : res[1]) || null;
-      const group = (Array.isArray(res[2]) ? res[2][0] : res[2]) || null;
+      const groupHeader = (Array.isArray(res[2]) ? res[2][0] : res[2]) || null;
       if (!box || !dish || box.top === undefined || dish.top === undefined) {
         resolve(null);
         return;
       }
-      resolve({ boxTop: box.top, dishTop: dish.top, headerHeight: group?.height || 0 });
+      resolve({ boxTop: box.top, dishTop: dish.top, headerHeight: groupHeader?.height || 0 });
     });
   });
 }
@@ -718,9 +739,7 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
   }
   // 公式：目标 scrollTop = 当前 scrollTop + (该组 top − 容器 top)
   const target = Math.max(0, scrolledTop + (gRect.top - box.top));
-  scrollTo.value = 0;
-  await nextTick();
-  scrollTo.value = target;
+  await applyScrollTop(target);
   categoryPickTimer = setTimeout(() => {
     if (version === categoryPickVersion) {
       categoryPickInFlight = false;
@@ -807,7 +826,7 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
         <template v-else>
           <view v-for="g in groups" :id="`group-${g.key}`" :key="g.key" class="menu-group">
             <!-- 吸顶分组标题 -->
-            <view class="sec-tit">
+            <view :id="`group-header-${g.key}`" class="sec-tit">
               <text class="sec-tit__ic">{{ g.icon }}</text>
               <text class="sec-tit__name">{{ g.label }}</text>
               <text class="sec-tit__cnt">{{ g.items.length }} 道</text>

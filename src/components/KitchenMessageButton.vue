@@ -118,45 +118,59 @@ function openKitchen() {
     aria-label="打开厨师工作台"
     @click.stop="openKitchen"
   >
-    <image class="kitchen-message__icon" :src="icon" />
-    <text v-if="count > 0" class="kitchen-message__badge">{{ badge }}</text>
+    <view class="kitchen-message__bubble">
+      <image class="kitchen-message__icon" :src="icon" />
+      <text v-if="count > 0" class="kitchen-message__badge">{{ badge }}</text>
+    </view>
   </view>
 </template>
 
 <style lang="scss" scoped>
+/* 入口外框留出角标空间，避免数字被导航栏边缘裁切 */
 .kitchen-message {
+  width: 76rpx;
+  height: 76rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 消息按钮：圆形玻璃底，图标与数字作为一个整体设计 */
+.kitchen-message__bubble {
   position: relative;
   width: 64rpx;
   height: 64rpx;
-  border-radius: 50%;
+  border-radius: 22rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   background: $lg-fill-2;
   border: 1rpx solid $lg-border;
+  box-shadow: $lg-shadow-sm;
 }
 
 .kitchen-message__icon {
-  width: 36rpx;
-  height: 36rpx;
+  width: 34rpx;
+  height: 34rpx;
 }
 
-/* 角标贴图标右下，紧邻而不遮挡铃铛/消息轮廓 */
+/* 数字角标：嵌在按钮右上角内沿，使用白描边与按钮分离 */
 .kitchen-message__badge {
   position: absolute;
-  right: -10rpx;
-  bottom: -8rpx;
-  min-width: 28rpx;
-  height: 28rpx;
-  line-height: 28rpx;
+  top: -5rpx;
+  right: -5rpx;
+  min-width: 30rpx;
+  height: 30rpx;
+  line-height: 26rpx;
   padding: 0 7rpx;
   border-radius: 999rpx;
   background: $meal-danger;
+  border: 2rpx solid $lg-fill-4;
   color: #fff;
-  font-size: 17rpx;
+  font-size: 16rpx;
   font-weight: 700;
   text-align: center;
   box-sizing: border-box;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.18);
+  box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.16);
 }
 </style>
