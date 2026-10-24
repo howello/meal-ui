@@ -110,8 +110,8 @@ async function submit() {
       <textarea
         v-model="remark"
         class="textarea"
-        maxlength="200"
-        placeholder="口味偏好、想怎么吃等"
+        maxlength="2000"
+        placeholder="可粘贴菜谱，或写明必须/不要添加的食材、指定厨具等制作要求"
         placeholder-class="ph"
       />
     </view>

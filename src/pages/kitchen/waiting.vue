@@ -3,6 +3,7 @@ import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
 import { acceptOrder, kitchenOrders } from "@/api/order";
 import CachedImage from "@/components/CachedImage.vue";
+import KitchenMenuShortcut from "@/components/KitchenMenuShortcut.vue";
 import TabBar from "@/components/TabBar.vue";
 import { useUserStore } from "@/store/user";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
@@ -85,7 +86,10 @@ function waitText(order: Order): string {
 <template>
   <view class="app-fixed" :class="themeRootClass">
     <view class="header">
-      <text class="header__title">待接单 · {{ orders.length }} 单</text>
+      <view class="header__row">
+        <text class="header__title">待接单 · {{ orders.length }} 单</text>
+        <KitchenMenuShortcut />
+      </view>
       <text class="header__sub">{{ userStore.nickName }}，今天辛苦了</text>
     </view>
 
@@ -146,8 +150,16 @@ function waitText(order: Order): string {
   -webkit-backdrop-filter: blur($lg-blur) saturate($lg-sat);
 }
 
+.header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
 .header__title {
-  display: block;
+  flex: 1;
+  min-width: 0;
   font-size: 36rpx;
   font-weight: 700;
   color: $lg-ink;
