@@ -202,9 +202,9 @@ function goNext() {
     uni.reLaunch({ url: redirect });
     return;
   }
-  uni.reLaunch({
-    url: userStore.isChef ? "/pages/kitchen/waiting" : "/pages/menu/index",
-  });
+  // 所有角色登录后都先进入点餐区；厨师可从点餐区右上角消息入口进入工作台
+  userStore.setViewMode("eater");
+  uni.reLaunch({ url: "/pages/menu/index" });
 }
 
 /** 去家庭注册页：用家庭管理员生成的邀请码加入已有家庭 */
