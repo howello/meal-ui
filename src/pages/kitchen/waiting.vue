@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
-import { acceptOrder, kitchenOrders } from "@/api/order";
+import { acceptOrder, kitchenOrders, skipKitchenOrder } from "@/api/order";
 import CachedImage from "@/components/CachedImage.vue";
 import KitchenMenuShortcut from "@/components/KitchenMenuShortcut.vue";
 import TabBar from "@/components/TabBar.vue";
@@ -14,15 +14,16 @@ useOrderNotifierLifecycle();
 
 const orders = ref<Order[]>([]);
 const loading = ref(false);
-const acting = ref(0);
+/** 正在接单的订单ID；与暂不接分开，避免两个按钮互相显示加载态 */
+const acceptingId = ref(0);
+/** 正在暂不接的订单ID */
+const skippingId = ref(0);
 
 onShow(async () => {
   if (!userStore.isLogin) {
     uni.reLaunch({ url: "/pages/login/index" });
     return;
   }
-  // 进了工作台，底部导航就该是厨师那一套
-  userStore.setViewMode("kitchen");
   if (!userStore.user) {
     try {
       await userStore.fetchInfo();
@@ -60,19 +61,51 @@ async function loadOrders() {
   }
 }
 
+/**
+ * 接单：先锁按钮并即时移除本单，再以服务端结果校准列表。
+ *
+ * <p>接口是原子状态流转，两个厨师同时抢时只有一个成功；
+ * 失败时恢复该单并让请求层提示具体原因，避免用户误以为按钮没反应。</p>
+ */
 async function doAccept(order: Order) {
-  if (acting.value) {
+  if (acceptingId.value || skippingId.value) {
     return;
   }
-  acting.value = order.orderId;
+  acceptingId.value = order.orderId;
+  const snapshot = [...orders.value];
+  orders.value = orders.value.filter((item) => item.orderId !== order.orderId);
   try {
     await acceptOrder(order.orderId);
-    uni.showToast({ title: "已接单", icon: "none" });
-    loadOrders();
+    uni.showToast({ title: "已接单，去制作中查看", icon: "none" });
+    void loadOrders();
   } catch (e) {
-    // 提示已由请求层给出
+    orders.value = snapshot;
   } finally {
-    acting.value = 0;
+    acceptingId.value = 0;
+  }
+}
+
+/**
+ * 暂不接：持久记录到当前厨师的跳过集合，再即时从列表移除。
+ *
+ * 该记录不影响其他厨师；App 重启后由服务端继续过滤。失败时恢复卡片并保留请求层提示。
+ *
+ * @param order 要跳过的订单
+ */
+async function deferOrder(order: Order) {
+  if (acceptingId.value || skippingId.value) {
+    return;
+  }
+  skippingId.value = order.orderId;
+  const snapshot = [...orders.value];
+  orders.value = orders.value.filter((item) => item.orderId !== order.orderId);
+  try {
+    await skipKitchenOrder(order.orderId);
+    uni.showToast({ title: "已从我的待接单中隐藏", icon: "none" });
+  } catch (e) {
+    orders.value = snapshot;
+  } finally {
+    skippingId.value = 0;
   }
 }
 
@@ -119,8 +152,16 @@ function waitText(order: Order): string {
         <view class="note">整体备注：{{ order.orderRemark || "无" }}</view>
 
         <view class="order__actions">
-          <view class="btn btn--line" @click="loadOrders">暂不接</view>
-          <view class="btn" @click="doAccept(order)">接 单</view>
+          <view
+            class="btn btn--line"
+            :class="{ 'btn--acting': skippingId === order.orderId }"
+            @click="deferOrder(order)"
+          >
+            {{ skippingId === order.orderId ? "处理中…" : "暂不接" }}
+          </view>
+          <view class="btn" :class="{ 'btn--acting': acceptingId === order.orderId }" @click="doAccept(order)">
+            {{ acceptingId === order.orderId ? "接单中…" : "接 单" }}
+          </view>
         </view>
       </view>
 
@@ -256,6 +297,11 @@ function waitText(order: Order): string {
   display: flex;
   gap: 20rpx;
   margin-top: 24rpx;
+}
+
+.btn--acting {
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .btn {

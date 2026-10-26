@@ -106,6 +106,8 @@ function onVisibleRefresh() {
 onShow(onVisibleRefresh);
 
 function openKitchen() {
+  // 先切到厨房视图，避免登录页恢复上次 eater 视图后底部导航仍停在点餐端
+  userStore.setViewMode("kitchen");
   uni.reLaunch({ url: "/pages/kitchen/waiting" });
 }
 </script>

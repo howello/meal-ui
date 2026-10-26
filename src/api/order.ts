@@ -39,6 +39,11 @@ export function kitchenOrderSummary() {
   });
 }
 
+/** 当前厨师跳过待接单订单；服务端按家庭+厨师持久记录 */
+export function skipKitchenOrder(orderId: number) {
+  return requestVoid({ url: `/meal/order/kitchen/skip/${orderId}`, method: "PUT" });
+}
+
 /** 接单 */
 export function acceptOrder(orderId: number) {
   return requestVoid({ url: `/meal/order/accept/${orderId}`, method: "PUT" });
