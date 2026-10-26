@@ -1,18 +1,17 @@
 <script setup lang="ts">
-import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
+import { onShow, onUnload } from "@dcloudio/uni-app";
 import { reactive, ref } from "vue";
 import { finishOrder, kitchenOrders } from "@/api/order";
 import CachedImage from "@/components/CachedImage.vue";
 import KitchenMenuShortcut from "@/components/KitchenMenuShortcut.vue";
 import TabBar from "@/components/TabBar.vue";
 import { useUserStore } from "@/store/user";
-import { useOrderNotifierLifecycle } from "@/utils/notify";
-import { ORDER_STATUS, type Order, type OrderItem } from "@/types";
+import { createOrderRefreshThrottle, useOrderNotifierLifecycle } from "@/utils/notify";
+import { ORDER_STATUS, type Order, type OrderItem, type OrderNotification } from "@/types";
 
 const COOK_DONE_KEY = "meal-cook-done";
 
 const userStore = useUserStore();
-useOrderNotifierLifecycle();
 
 const orders = ref<Order[]>([]);
 const loading = ref(false);
@@ -59,6 +58,22 @@ async function loadOrders() {
     loading.value = false;
   }
 }
+
+/** 制作状态变化通知到达后合并刷新制作中列表 */
+const refreshOrders = createOrderRefreshThrottle(loadOrders);
+
+/** 只响应可能改变制作中列表的订单流转通知 */
+function handleNotifications(notifications: OrderNotification[]) {
+  const affectsCooking = notifications.some((item) =>
+    item.type === "ORDER_ACCEPTED" || item.type === "ORDER_COMPLETED" || item.type === "ORDER_RATED",
+  );
+  if (affectsCooking) {
+    refreshOrders.trigger();
+  }
+}
+
+useOrderNotifierLifecycle({ onNotifications: handleNotifications });
+onUnload(refreshOrders.dispose);
 
 function loadDoneMap() {
   const raw = uni.getStorageSync(COOK_DONE_KEY);

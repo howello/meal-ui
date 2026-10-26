@@ -1,23 +1,38 @@
 <script setup lang="ts">
-import { onShow, onHide, onUnload } from "@dcloudio/uni-app";
+import { onShow, onUnload } from "@dcloudio/uni-app";
 import { ref } from "vue";
-import { acceptOrder, kitchenOrders, skipKitchenOrder } from "@/api/order";
+import { acceptOrder, kitchenOrders, refuseOrder } from "@/api/order";
 import CachedImage from "@/components/CachedImage.vue";
 import KitchenMenuShortcut from "@/components/KitchenMenuShortcut.vue";
 import TabBar from "@/components/TabBar.vue";
 import { useUserStore } from "@/store/user";
-import { useOrderNotifierLifecycle } from "@/utils/notify";
-import { ORDER_STATUS, type Order } from "@/types";
+import { createOrderRefreshThrottle, useOrderNotifierLifecycle } from "@/utils/notify";
+import { ORDER_STATUS, type Order, type OrderNotification } from "@/types";
 
 const userStore = useUserStore();
-useOrderNotifierLifecycle();
 
 const orders = ref<Order[]>([]);
 const loading = ref(false);
-/** 正在接单的订单ID；与暂不接分开，避免两个按钮互相显示加载态 */
+/** 正在接单的订单ID；与拒绝分开，避免两个按钮互相显示加载态 */
 const acceptingId = ref(0);
-/** 正在暂不接的订单ID */
+/** 正在处理拒绝的订单ID */
 const skippingId = ref(0);
+
+/** 是否是指派给我的单：只影响卡片上的来源标签样式 */
+function isAssignedToMe(order: Order): boolean {
+  return order.assignMode === "1";
+}
+
+/** 指派单显示被指派人，公开单显示「公开抢单」 */
+function assignLabel(order: Order): string {
+  if (order.assignMode === "1") {
+    return `指派给 ${order.assignUserName || "我"}`;
+  }
+  if (order.assignMode === "2") {
+    return "指派已转公开";
+  }
+  return "公开抢单";
+}
 
 onShow(async () => {
   if (!userStore.isLogin) {
@@ -61,6 +76,19 @@ async function loadOrders() {
   }
 }
 
+/** 新订单通知到达后合并刷新待接单列表 */
+const refreshOrders = createOrderRefreshThrottle(loadOrders);
+
+/** 仅新订单会改变待接单页，其他通知不触发额外请求 */
+function handleNotifications(notifications: OrderNotification[]) {
+  if (notifications.some((item) => item.type === "NEW_ORDER")) {
+    refreshOrders.trigger();
+  }
+}
+
+useOrderNotifierLifecycle({ onNotifications: handleNotifications });
+onUnload(refreshOrders.dispose);
+
 /**
  * 接单：先锁按钮并即时移除本单，再以服务端结果校准列表。
  *
@@ -86,22 +114,37 @@ async function doAccept(order: Order) {
 }
 
 /**
- * 暂不接：持久记录到当前厨师的跳过集合，再即时从列表移除。
+ * 拒绝这张单：指派单与公开单共用的「不做这单」操作。
  *
- * 该记录不影响其他厨师；App 重启后由服务端继续过滤。失败时恢复卡片并保留请求层提示。
+ * <p>拒绝会把自己的候选人记录置为已拒绝；如果这是最后一个待响应的候选人，
+ * 订单会被立即关闭为无人接单。因此操作前额外确认一次。</p>
  *
- * @param order 要跳过的订单
+ * @param order 要拒绝的订单
  */
-async function deferOrder(order: Order) {
+async function refuseOrderItem(order: Order) {
   if (acceptingId.value || skippingId.value) {
+    return;
+  }
+  const confirmed = await new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: "拒绝这张单？",
+      content: "拒绝后如果没人再接，这单就会被关掉。",
+      confirmText: "拒绝",
+      cancelText: "再想想",
+      success: (res) => resolve(res.confirm),
+      fail: () => resolve(false),
+    });
+  });
+  if (!confirmed) {
     return;
   }
   skippingId.value = order.orderId;
   const snapshot = [...orders.value];
   orders.value = orders.value.filter((item) => item.orderId !== order.orderId);
   try {
-    await skipKitchenOrder(order.orderId);
-    uni.showToast({ title: "已从我的待接单中隐藏", icon: "none" });
+    await refuseOrder(order.orderId);
+    uni.showToast({ title: "已拒绝", icon: "none" });
+    void loadOrders();
   } catch (e) {
     orders.value = snapshot;
   } finally {
@@ -140,6 +183,10 @@ function waitText(order: Order): string {
           <text class="timer">{{ waitText(order) }}</text>
         </view>
 
+        <text class="assign-tag" :class="{ 'assign-tag--self': isAssignedToMe(order) }">
+          {{ assignLabel(order) }}
+        </text>
+
         <view v-for="item in order.items || []" :key="item.itemId" class="item">
           <CachedImage v-if="item.dishCover" class="item__cover" :src="item.dishCover" mode="aspectFill" />
           <view v-else class="item__cover item__cover--ph">{{ item.dishName }}</view>
@@ -155,9 +202,9 @@ function waitText(order: Order): string {
           <view
             class="btn btn--line"
             :class="{ 'btn--acting': skippingId === order.orderId }"
-            @click="deferOrder(order)"
+            @click="refuseOrderItem(order)"
           >
-            {{ skippingId === order.orderId ? "处理中…" : "暂不接" }}
+            {{ skippingId === order.orderId ? "处理中…" : "拒 绝" }}
           </view>
           <view class="btn" :class="{ 'btn--acting': acceptingId === order.orderId }" @click="doAccept(order)">
             {{ acceptingId === order.orderId ? "接单中…" : "接 单" }}
@@ -230,6 +277,24 @@ function waitText(order: Order): string {
   padding: 6rpx 16rpx;
   border-radius: 999rpx;
   font-weight: 600;
+}
+
+/* 指派来源标记：指派给我的单高亮，公开单保持中性 */
+.assign-tag {
+  display: inline-block;
+  margin-top: 12rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  font-size: 20rpx;
+  color: $lg-ink-2;
+  background-color: $lg-fill-2;
+  border: 1rpx solid $lg-line;
+}
+
+.assign-tag--self {
+  color: $lg-accent;
+  background-color: $lg-accent-soft;
+  border-color: $lg-accent-soft;
 }
 
 .item {

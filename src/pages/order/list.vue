@@ -1,19 +1,20 @@
 <script setup lang="ts">
-import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
+import { onLoad, onShow, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { cancelOrder, myOrders } from "@/api/order";
 import AppDialog from "@/components/AppDialog.vue";
 import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { confirm } from "@/composables/useDialog";
-import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
-import { useOrderNotifierLifecycle } from "@/utils/notify";
+import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order, type OrderNotification } from "@/types";
+import { createOrderRefreshThrottle, useOrderNotifierLifecycle } from "@/utils/notify";
 
 const FILTERS = [
   { key: "", text: "全部" },
   { key: ORDER_STATUS.WAITING, text: "待接单" },
   { key: ORDER_STATUS.COOKING, text: "制作中" },
   { key: ORDER_STATUS.FINISHED, text: "已完成" },
+  { key: ORDER_STATUS.UNACCEPTED, text: "无人接单" },
 ];
 
 const orders = ref<Order[]>([]);
@@ -23,7 +24,6 @@ const loading = ref(false);
 const scope = ref("");
 const isChefScope = computed(() => scope.value === "chef");
 const title = computed(() => (isChefScope.value ? "我制作的" : "我的订单"));
-useOrderNotifierLifecycle();
 
 onLoad((options) => {
   scope.value = options?.scope === "chef" ? "chef" : "";
@@ -49,6 +49,19 @@ async function loadOrders() {
   }
 }
 
+/** 同一批或短时间内多条订单通知合并成一次刷新 */
+const refreshOrders = createOrderRefreshThrottle(loadOrders);
+
+/** 订单页收到任何订单流转通知都刷新；通知本来就只来自当前账号可读队列 */
+function handleNotifications(notifications: OrderNotification[]) {
+  if (notifications.length > 0) {
+    refreshOrders.trigger();
+  }
+}
+
+useOrderNotifierLifecycle({ onNotifications: handleNotifications });
+onUnload(refreshOrders.dispose);
+
 function pickFilter(key: string) {
   activeStatus.value = key;
   loadOrders();
@@ -67,6 +80,9 @@ function statusClass(status: string): string {
   }
   if (status === ORDER_STATUS.FINISHED) {
     return "tag tag--ok";
+  }
+  if (status === ORDER_STATUS.UNACCEPTED) {
+    return "tag tag--warn";
   }
   return "tag tag--gray";
 }
@@ -143,6 +159,7 @@ function doCancel(order: Order) {
           </text>
           <text v-else-if="order.status === ORDER_STATUS.FINISHED" class="tiny">已评价</text>
           <text v-else-if="order.status === ORDER_STATUS.COOKING" class="tiny">厨师已接单 ›</text>
+          <text v-else-if="order.status === ORDER_STATUS.UNACCEPTED" class="tiny">没人接单，可以再点一次</text>
         </view>
       </view>
     </view>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
+import { onLoad, onShow, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import { cancelOrder, orderDetail } from "@/api/order";
 import AppDialog from "@/components/AppDialog.vue";
@@ -7,8 +7,8 @@ import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { confirm } from "@/composables/useDialog";
 import { useUserStore } from "@/store/user";
-import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order } from "@/types";
-import { useOrderNotifierLifecycle } from "@/utils/notify";
+import { ORDER_STATUS, ORDER_STATUS_TEXT, type Order, type OrderNotification } from "@/types";
+import { createOrderRefreshThrottle, useOrderNotifierLifecycle } from "@/utils/notify";
 import { previewImage } from "@/utils/preview";
 
 const userStore = useUserStore();
@@ -17,7 +17,6 @@ const order = ref<Order | null>(null);
 const loading = ref(true);
 /** 是否本人下的订单：厨师查看自己制作过的订单时，不显示点餐人的取消/评价操作 */
 const isMine = computed(() => !!order.value && order.value.userId === userStore.user?.userId);
-useOrderNotifierLifecycle();
 
 onLoad((options) => {
   orderId.value = Number(options?.orderId || 0);
@@ -40,6 +39,19 @@ async function loadDetail() {
   }
 }
 
+/** 当前详情页的通知刷新节流器 */
+const refreshDetail = createOrderRefreshThrottle(loadDetail);
+
+/** 只有当前订单的状态通知才需要刷新详情 */
+function handleNotifications(notifications: OrderNotification[]) {
+  if (notifications.some((item) => item.orderId === orderId.value)) {
+    refreshDetail.trigger();
+  }
+}
+
+useOrderNotifierLifecycle({ onNotifications: handleNotifications });
+onUnload(refreshDetail.dispose);
+
 /** 状态时间轴：已下单 → 已接单 → 制作中 → 已完成 */
 const timeline = computed(() => {
   const status = order.value?.status || ORDER_STATUS.WAITING;
@@ -54,7 +66,7 @@ const timeline = computed(() => {
     reached = 3;
   } else if (status === ORDER_STATUS.FINISHED) {
     reached = 4;
-  } else if (status === ORDER_STATUS.CANCELED) {
+  } else if (status === ORDER_STATUS.CANCELED || status === ORDER_STATUS.UNACCEPTED) {
     reached = 1;
   }
   return steps.map((step, index) => ({ ...step, done: index < reached }));
@@ -66,7 +78,7 @@ const statusHint = computed(() => {
     return "";
   }
   if (current.status === ORDER_STATUS.WAITING) {
-    return "已提交，等待厨师接单";
+    return deadlineHint(current) || "已提交，等待厨师接单";
   }
   if (current.status === ORDER_STATUS.COOKING) {
     return `${current.acceptBy || "厨师"} ${current.acceptTime || ""} 已接单，正在制作`;
@@ -74,8 +86,57 @@ const statusHint = computed(() => {
   if (current.status === ORDER_STATUS.FINISHED) {
     return `${current.finishBy || "厨师"} ${current.finishTime || ""} 已完成`;
   }
+  if (current.status === ORDER_STATUS.UNACCEPTED) {
+    return current.closeReason === "2"
+      ? "超过接单时间仍无人接单，可以重新下单"
+      : "没有人接这张单，可以重新下单";
+  }
   return "订单已取消";
 });
+
+/**
+ * 待接单时的补充说明：指派对象与剩余时间
+ *
+ * @param order 当前订单
+ * @returns 提示文案，非待接单或无附加信息时返回空串
+ */
+function deadlineHint(order: Order): string {
+  const parts: string[] = [];
+  if (order.assignMode === "1" && order.assignUserName) {
+    parts.push(`已指派给 ${order.assignUserName}`);
+  } else if (order.assignMode === "2") {
+    parts.push("已转为公开抢单");
+  }
+  const remaining = remainingText(order.deadlineTime);
+  if (remaining) {
+    parts.push(remaining);
+  }
+  return parts.join("，");
+}
+
+/**
+ * 把截止时间换算成「还剩 X 分钟」；已过期或时间缺失时返回空串
+ *
+ * @param deadline 截止时间字符串
+ * @returns 剩余时间文案
+ */
+function remainingText(deadline?: string): string {
+  if (!deadline) {
+    return "";
+  }
+  const target = new Date(deadline.replace(/-/g, "/")).getTime();
+  if (!Number.isFinite(target)) {
+    return "";
+  }
+  const minutes = Math.floor((target - Date.now()) / 60000);
+  if (minutes <= 0) {
+    return "";
+  }
+  if (minutes >= 60) {
+    return `还剩约 ${Math.floor(minutes / 60)} 小时`;
+  }
+  return `还剩约 ${minutes} 分钟`;
+}
 
 function statusText(status: string): string {
   return ORDER_STATUS_TEXT[status] || "未知";
