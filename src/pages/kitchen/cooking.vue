@@ -25,8 +25,6 @@ onShow(async () => {
     uni.reLaunch({ url: "/pages/login/index" });
     return;
   }
-  // 进了工作台，底部导航就该是厨师那一套
-  userStore.setViewMode("kitchen");
   if (!userStore.user) {
     try {
       await userStore.fetchInfo();

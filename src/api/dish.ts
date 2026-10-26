@@ -41,6 +41,20 @@ export function updateDish(data: Partial<Dish> & { dishId: number }) {
   return requestVoid({ url: "/meal/dish", method: "PUT", data });
 }
 
+/** 删除菜品（需要 meal:dish:remove 权限） */
+export function deleteDish(dishId: number) {
+  return requestVoid({ url: `/meal/dish/${dishId}`, method: "DELETE" });
+}
+
+/** 强制按菜名与图片描述重新生成封面，返回永久地址 */
+export function regenerateDishCover(data: { name: string; imageDescription: string }) {
+  return request<{ cover?: string; imageError?: string }>({
+    url: "/meal/dish/ai-generate/cover",
+    method: "POST",
+    data: { ...data, forceRegenerate: true, current: { cover: "" } },
+  });
+}
+
 /**
  * AI 更新菜品：从完整做法中提取文本字段并在服务端异步落库
  *

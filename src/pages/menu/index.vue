@@ -10,7 +10,7 @@ import { useCartStore } from "@/store/cart";
 import { useUserStore } from "@/store/user";
 import { svgIcon } from "@/utils/icons";
 import { preloadImages } from "@/utils/imageCache";
-import { consumeMenuDirty, MENU_CACHE_KEY } from "@/utils/menuCache";
+import { consumeMenuCache, consumeMenuDirty, getMenuCache, type MenuSnapshot } from "@/utils/menuCache";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 import type { Category, Dish } from "@/types";
 
@@ -88,8 +88,6 @@ onShow(async () => {
     uni.reLaunch({ url: "/pages/login/index" });
     return;
   }
-  // 进了点餐区，底部导航就该是点餐那一套
-  userStore.setViewMode("eater");
   if (!userStore.user) {
     try {
       await userStore.fetchInfo();
@@ -100,18 +98,19 @@ onShow(async () => {
     // 已从本地缓存恢复身份：先渲染，再后台刷新一次，token 失效由请求层踢回登录
     userStore.refreshInfo();
   }
-  // 菜品在本端被编辑保存过（含上下架）：忽略内存与本地缓存，强制重拉一次
+  // 编辑/删除后清空进程内菜单快照，确保从详情或编辑页返回时一定重拉
   if (consumeMenuDirty()) {
-    menuInitialized = false;
-    uni.removeStorageSync(MENU_CACHE_KEY);
+    getMenuCache().clear();
   }
-  // 已加载过全量菜单（如从菜品详情返回）：直接用内存数据，不重复请求
-  if (menuInitialized) {
+  // 再读进程级内存缓存：切换页面不重复请求，关闭 App / 刷新页面后自然丢失
+  const cached = consumeMenuCache();
+  if (cached) {
+    applyMenuSnapshot(cached);
     await nextTick();
     await measureAndHighlight();
     return;
   }
-  // 其余情况：读本地缓存秒显；只有首次无缓存时才发请求
+  // 没有可复用的内存数据：首次进入或编辑/删除后强制拉取
   await loadFromCacheOrNetwork();
 });
 
@@ -123,51 +122,25 @@ onUnload(() => {
   resetPickState();
 });
 
-/* ============ 本地缓存：命中即读、仅下拉刷新才重新拉取 ============ */
-/** 本次会话是否已加载过全量菜单（命中缓存或请求成功后置真），onShow 据此跳过重复加载 */
-let menuInitialized = false;
-
-/** 读取本地菜单缓存；不存在或损坏返回 null */
-function readMenuCache(): { categories: Category[]; dishes: Dish[]; signatures: Dish[] } | null {
-  try {
-    const raw = uni.getStorageSync(MENU_CACHE_KEY);
-    const cached = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (!cached || !Array.isArray(cached.categories) || !Array.isArray(cached.dishes)) {
-      return null;
-    }
-    return {
-      categories: cached.categories,
-      dishes: cached.dishes,
-      signatures: Array.isArray(cached.signatures) ? cached.signatures : [],
-    };
-  } catch (e) {
-    return null;
-  }
+/* ============ 菜单缓存：进程内共享，页面切换不重复拉取；App 重开后重新请求 ============ */
+/** 把内存快照回填到当前页面 */
+function applyMenuSnapshot(snapshot: MenuSnapshot) {
+  categories.value = snapshot.categories;
+  dishes.value = snapshot.dishes;
+  signatures.value = snapshot.signatures;
+  warmUpCovers();
 }
 
-/** 把当前分类、全量菜品与招牌写入本地缓存 */
-function writeMenuCache() {
-  try {
-    uni.setStorageSync(
-      MENU_CACHE_KEY,
-      JSON.stringify({ categories: categories.value, dishes: dishes.value, signatures: signatures.value }),
-    );
-  } catch (e) {
-    // 本地缓存不可用不影响本次展示
-  }
-}
-
-/** 后台预热菜品封面（仅 App 端有实际动作），让滚动到该菜品时图片已就绪 */
-function warmUpCovers() {
-  preloadImages(dishes.value.map((item) => item.cover).filter((cover): cover is string => !!cover));
-}
-
-/** 强制拉取分类与全量菜品，成功后刷新缓存并重新测量高亮 */
+/** 强制拉取分类与全量菜品，成功后刷新内存快照并重新测量高亮 */
 async function refreshAll(showSkeleton = false) {
   keyword.value = "";
   await Promise.all([loadCategories(), loadDishes(showSkeleton), loadSignatures()]);
-  writeMenuCache();
-  menuInitialized = true;
+  const cache = getMenuCache();
+  cache?.set({
+    categories: categories.value,
+    dishes: dishes.value,
+    signatures: signatures.value,
+  });
   activeCategoryId.value = undefined;
   scrollTo.value = 0;
   scrolledTop = 0;
@@ -177,24 +150,13 @@ async function refreshAll(showSkeleton = false) {
   await measureAndHighlight();
 }
 
-/** 进页面加载：命中缓存直接渲染，未命中才请求 */
+/** 首次进入页面或无内存快照时拉取 */
 async function loadFromCacheOrNetwork() {
   keyword.value = "";
-  const cached = readMenuCache();
-  if (cached) {
-    categories.value = cached.categories;
-    dishes.value = cached.dishes;
-    signatures.value = cached.signatures;
-    menuInitialized = true;
-    warmUpCovers();
-    await nextTick();
-    await measureAndHighlight();
-    return;
-  }
   await refreshAll(true);
 }
 
-/** 下拉刷新：强制重新拉取分类与菜品列表并覆盖缓存（保留现有列表，不换骨架屏） */
+/** 下拉刷新：强制重新拉取分类与菜品列表（保留现有列表，不换骨架屏） */
 async function onRefresh() {
   refreshing.value = true;
   try {
@@ -202,6 +164,11 @@ async function onRefresh() {
   } finally {
     refreshing.value = false;
   }
+}
+
+/** 后台预热菜品封面（仅 App 端有实际动作），让滚动到该菜品时图片已就绪 */
+function warmUpCovers() {
+  preloadImages(dishes.value.map((item) => item.cover).filter((cover): cover is string => !!cover));
 }
 
 /* ============ 下拉刷新：调大阈值让下拉更「沉」，做出阻尼感 ============ */

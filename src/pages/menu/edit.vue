@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onLoad } from "@dcloudio/uni-app";
 import { computed, reactive, ref } from "vue";
-import { aiUpdateDish, getDish, listCategory, updateDish } from "@/api/dish";
+import { aiUpdateDish, deleteDish, getDish, listCategory, regenerateDishCover, updateDish } from "@/api/dish";
 import { uploadImage } from "@/api/upload";
 import CachedImage from "@/components/CachedImage.vue";
 import GlassButton from "@/components/GlassButton.vue";
@@ -9,17 +9,28 @@ import GlassCard from "@/components/GlassCard.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { useUserStore } from "@/store/user";
 import type { Category, Dish, Ingredient } from "@/types";
-import { markMenuDirty } from "@/utils/menuCache";
+import { clearMenuCache, markMenuDirty } from "@/utils/menuCache";
 
 const userStore = useUserStore();
 
 /** 编辑页仅对厨师与家庭管理员开放 */
-const canEdit = computed(() => userStore.isChef || userStore.isManager);
+const canEdit = computed(
+  () => userStore.isChef || userStore.isManager || userStore.permissions.includes("meal:dish:edit"),
+);
+/** 删除仍需后端 meal:dish:remove 权限，不能只凭角色显示 */
+const canDelete = computed(() => userStore.permissions.includes("meal:dish:remove"));
 
 const dishId = ref(0);
 const loading = ref(true);
 const submitting = ref(false);
 const uploading = ref(false);
+const deleting = ref(false);
+const regenerating = ref(false);
+/** 图片操作底部弹层：上传 / 重新生成 */
+const imageActionVisible = ref(false);
+/** 重新生成封面的描述输入弹层 */
+const regenerateVisible = ref(false);
+const imageDescription = ref("");
 
 const categories = ref<Category[]>([]);
 const selectedCategoryIds = ref<number[]>([]);
@@ -112,6 +123,10 @@ async function loadDish() {
   try {
     const dish = await getDish(dishId.value);
     applyDish(dish);
+    // 详情页跳编辑时权限缓存可能尚未回填；拿到菜品后后台刷新一次身份，删除按钮随之出现
+    if (!userStore.permissions.length) {
+      userStore.refreshInfo();
+    }
   } catch (e) {
     uni.showToast({ title: "菜品加载失败", icon: "none" });
     goBack();
@@ -219,8 +234,17 @@ function removeTip(index: number) {
   tips.value.splice(index, 1);
 }
 
-/** 选择并上传封面：返回对象存储永久地址 */
+/** 打开封面操作面板：上传新图或按描述重新生成 */
+function openImageActions() {
+  if (uploading.value || regenerating.value) {
+    return;
+  }
+  imageActionVisible.value = true;
+}
+
+/** 从相册/相机选择并上传封面 */
 function chooseCover() {
+  imageActionVisible.value = false;
   if (uploading.value) {
     return;
   }
@@ -247,6 +271,89 @@ function chooseCover() {
       }
     },
   });
+}
+
+/** 打开图片描述输入弹层 */
+function openRegenerateDialog() {
+  imageActionVisible.value = false;
+  if (!form.name.trim()) {
+    uni.showToast({ title: "请先填写菜名", icon: "none" });
+    return;
+  }
+  imageDescription.value = "";
+  regenerateVisible.value = true;
+}
+
+/**
+ * 根据菜名与图片描述重新生成封面。
+ *
+ * <p>只回填表单，不自动保存；用户确认效果后再点右上角保存。</p>
+ */
+async function regenerateCover() {
+  const name = form.name.trim();
+  const description = imageDescription.value.trim();
+  if (!name) {
+    uni.showToast({ title: "请先填写菜名", icon: "none" });
+    return;
+  }
+  if (!description) {
+    uni.showToast({ title: "请填写图片描述", icon: "none" });
+    return;
+  }
+  if (regenerating.value) {
+    return;
+  }
+  regenerating.value = true;
+  try {
+    const result = await regenerateDishCover({ name, imageDescription: description });
+    if (!result.cover) {
+      uni.showToast({ title: result.imageError || "图片生成失败", icon: "none" });
+      return;
+    }
+    form.cover = result.cover;
+    regenerateVisible.value = false;
+    uni.showToast({ title: "封面已重新生成，请保存", icon: "none" });
+  } catch (e) {
+    // 请求层已提示具体原因，弹层保留输入便于重试
+  } finally {
+    regenerating.value = false;
+  }
+}
+
+/** 删除菜品：二次确认后调用后端逻辑删除，并让点餐区下次重新拉取 */
+async function removeDish() {
+  if (!canDelete.value || deleting.value) {
+    return;
+  }
+  const confirmed = await new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: "删除菜品",
+      content: `确定删除「${form.name || "这道菜"}」吗？历史订单快照不受影响。`,
+      confirmText: "删除",
+      confirmColor: "#D92D20",
+      success: (res) => resolve(res.confirm),
+      fail: () => resolve(false),
+    });
+  });
+  if (!confirmed) {
+    return;
+  }
+  deleting.value = true;
+  try {
+    await deleteDish(dishId.value);
+    markMenuDirty();
+    clearMenuCache();
+    uni.showToast({ title: "菜品已删除", icon: "none" });
+    setTimeout(() => {
+      const pages = getCurrentPages();
+      // 从详情页进入时退两层回菜单；直接进入时只退一层
+      uni.navigateBack({ delta: pages.length > 2 ? 2 : 1 });
+    }, 600);
+  } catch (e) {
+    // 失败原因已由请求层提示
+  } finally {
+    deleting.value = false;
+  }
 }
 
 /** 序列化动态列表：过滤空行；空列表写 "[]"，避免 MySQL JSON 列拒绝空字符串 */
@@ -349,13 +456,16 @@ async function aiUpdate() {
         这是公共菜谱，修改会对所有家庭生效，请谨慎调整
       </view>
       <GlassCard class="cover-card">
-        <view class="cover" @click="chooseCover">
+        <view class="cover" @click="openImageActions">
           <CachedImage v-if="form.cover" class="cover__img" :src="form.cover" mode="aspectFill" />
           <view v-else class="cover__ph">
             <text class="cover__ph-text">点击上传封面</text>
           </view>
           <view v-if="uploading" class="cover__mask">
             <text class="cover__mask-text">上传中</text>
+          </view>
+          <view v-else class="cover__edit-tip">
+            <text class="cover__edit-label">{{ regenerating ? "生成中…" : "编辑图片" }}</text>
           </view>
         </view>
         <text class="cover__hint">{{ uploading ? "正在上传…" : "点击封面可更换图片" }}</text>
@@ -506,7 +616,51 @@ async function aiUpdate() {
           {{ aiUpdating ? "AI 处理中…" : "AI 更新并保存" }}
         </GlassButton>
       </GlassCard>
+
+      <view v-if="canDelete" class="danger-zone">
+        <view class="danger-btn" :class="{ 'danger-btn--disabled': deleting }" @click="removeDish">
+          {{ deleting ? "删除中…" : "删除菜品" }}
+        </view>
+      </view>
     </template>
+
+    <!-- 图片操作面板：底部弹出，遮罩点击可关闭 -->
+    <view v-if="imageActionVisible" class="action-mask" @click.self="imageActionVisible = false">
+      <view class="action-sheet">
+        <text class="action-sheet__title">编辑封面</text>
+        <text class="action-sheet__hint">可以上传新图，也可以输入画面描述让 AI 重新生成</text>
+        <view class="action-sheet__btn" @click="chooseCover">从相册 / 相机上传</view>
+        <view class="action-sheet__btn action-sheet__btn--primary" @click="openRegenerateDialog">AI 重新生成</view>
+        <view class="action-sheet__cancel" @click="imageActionVisible = false">取消</view>
+      </view>
+    </view>
+
+    <!-- 重新生成描述输入：用页面内弹层，避免单行 showModal 输入框在 App 端体验不一致 -->
+    <view v-if="regenerateVisible" class="action-mask" @click.self="regenerateVisible = false">
+      <view class="regen-dialog">
+        <text class="regen-dialog__title">重新生成封面</text>
+        <text class="regen-dialog__hint">会结合菜名「{{ form.name }}」与下面的描述生成新图</text>
+        <textarea
+          v-model="imageDescription"
+          class="regen-dialog__input"
+          maxlength="300"
+          auto-height
+          :disabled="regenerating"
+          placeholder="例如：暖色灯光下的家常餐桌，俯拍，突出油亮的酱汁"
+          placeholder-class="ph"
+        />
+        <view class="regen-dialog__btns">
+          <view class="regen-dialog__btn regen-dialog__btn--cancel" @click="regenerateVisible = false">取消</view>
+          <view
+            class="regen-dialog__btn regen-dialog__btn--primary"
+            :class="{ 'regen-dialog__btn--disabled': regenerating }"
+            @click="regenerateCover"
+          >
+            {{ regenerating ? "生成中…" : "开始生成" }}
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -583,6 +737,171 @@ async function aiUpdate() {
 .cover__mask-text {
   font-size: 24rpx;
   color: #fff;
+}
+
+/* 图片底部透明渐隐遮罩，明确提示可点击编辑，又不遮挡图片主体 */
+.cover__edit-tip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 76rpx;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 16rpx;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.55));
+}
+
+.cover__edit-label {
+  font-size: 24rpx;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.4);
+}
+
+/* 删除菜品：放到表单最底部，低饱和危险色，避免误触 */
+.danger-zone {
+  margin-top: 32rpx;
+  padding-bottom: 30rpx;
+}
+
+.danger-btn {
+  height: 84rpx;
+  line-height: 84rpx;
+  text-align: center;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: $meal-danger;
+  background: $lg-fill;
+  border: 1rpx solid rgba(217, 45, 32, 0.28);
+}
+
+.danger-btn--disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* 底部操作面板 */
+.action-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 24rpx;
+  box-sizing: border-box;
+  background: $lg-mask;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.action-sheet,
+.regen-dialog {
+  width: 100%;
+  max-width: 680rpx;
+  border-radius: 36rpx;
+  padding: 36rpx 28rpx calc(28rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  border: 1rpx solid $lg-border;
+  background: $lg-fill;
+  box-shadow: $lg-shadow, $lg-edge;
+}
+
+.action-sheet__title,
+.regen-dialog__title {
+  display: block;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: $lg-ink;
+}
+
+.action-sheet__hint,
+.regen-dialog__hint {
+  display: block;
+  margin: 12rpx 0 24rpx;
+  text-align: center;
+  font-size: 23rpx;
+  line-height: 1.5;
+  color: $lg-ink-3;
+}
+
+.action-sheet__btn {
+  height: 84rpx;
+  line-height: 84rpx;
+  margin-top: 16rpx;
+  text-align: center;
+  border-radius: 22rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: $lg-ink;
+  background: $lg-fill-2;
+  border: 1rpx solid $lg-border;
+}
+
+.action-sheet__btn--primary {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  box-shadow: 0 12rpx 26rpx $lg-accent-shadow;
+}
+
+.action-sheet__cancel {
+  margin-top: 20rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: $lg-ink-3;
+}
+
+.regen-dialog__input {
+  width: 100%;
+  min-height: 190rpx;
+  padding: 20rpx;
+  box-sizing: border-box;
+  border-radius: 20rpx;
+  border: 1rpx solid $lg-border;
+  background: $lg-fill-2;
+  font-size: 26rpx;
+  line-height: 1.55;
+  color: $lg-ink;
+}
+
+.regen-dialog__btns {
+  display: flex;
+  gap: 18rpx;
+  margin-top: 24rpx;
+}
+
+.regen-dialog__btn {
+  flex: 1;
+  height: 82rpx;
+  line-height: 82rpx;
+  text-align: center;
+  border-radius: 999rpx;
+  font-size: 27rpx;
+  font-weight: 600;
+}
+
+.regen-dialog__btn--cancel {
+  color: $lg-ink-2;
+  background: $lg-fill-3;
+  border: 1rpx solid $lg-border;
+}
+
+.regen-dialog__btn--primary {
+  color: #fff;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+}
+
+.regen-dialog__btn--disabled {
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 .cover__hint {

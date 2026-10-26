@@ -27,8 +27,8 @@ const loading = ref(true);
 const dishId = ref(0);
 /** 只读模式：来自制作中页跳转时隐藏加入购物车等加购交互，仅展示菜品信息 */
 const readonly = ref(false);
-/** 厨师与家庭管理员可编辑菜品 */
-const canEdit = computed(() => userStore.isChef || userStore.isManager);
+/** 能否编辑以实际权限为准，避免按角色误显示后端不允许的入口 */
+const canEdit = computed(() => userStore.permissions.includes("meal:dish:edit"));
 useOrderNotifierLifecycle();
 
 onLoad(async (options) => {
@@ -46,6 +46,9 @@ onLoad(async (options) => {
     userStore.refreshInfo();
   }
   await loadDish();
+  if (!userStore.permissions.length) {
+    userStore.refreshInfo();
+  }
 });
 
 /** 从编辑页返回时重新拉取，展示最新内容 */

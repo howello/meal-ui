@@ -61,7 +61,6 @@ onShow(() => {
     uni.reLaunch({ url: "/pages/login/index" });
     return;
   }
-  userStore.setViewMode("eater");
   cartStore.restore();
   const saved = uni.getStorageSync(ORDER_REMARK_KEY);
   orderRemark.value = typeof saved === "string" ? saved : "";
