@@ -1,4 +1,4 @@
-import type { Order, OrderNotification } from "@/types";
+import type { Order, OrderAssignee, OrderNotification } from "@/types";
 import { request, requestPage, requestVoid } from "@/utils/request";
 
 export interface SubmitOrderItem {
@@ -7,9 +7,25 @@ export interface SubmitOrderItem {
   remark?: string;
 }
 
-/** 下单，返回新订单ID */
-export function submitOrder(data: { items: SubmitOrderItem[]; orderRemark?: string }) {
+/** 通知聚合轮询结果；厨师额外返回待接单与制作中数量 */
+export interface OrderNotifyOverview {
+  notifications: OrderNotification[];
+  pendingCount?: number;
+  cookingCount?: number;
+}
+
+/** 下单，返回新订单ID；assignUserId 为空表示不指派，进入公开抢单池 */
+export function submitOrder(data: {
+  items: SubmitOrderItem[];
+  orderRemark?: string;
+  assignUserId?: number | null;
+}) {
   return request<number>({ url: "/meal/order", method: "POST", data });
+}
+
+/** 本家庭可指派的厨师，供确认下单页选择 */
+export function listOrderAssignees() {
+  return request<OrderAssignee[]>({ url: "/meal/order/assignees" });
 }
 
 /** 我的订单；scope=chef 时返回当前厨师自己接单制作过的订单 */
@@ -32,21 +48,14 @@ export function kitchenOrders(params: { status?: string; pageNum?: number; pageS
   return requestPage<Order>({ url: "/meal/order/kitchen/list", data: params });
 }
 
-/** 厨师工作台待办汇总：待接单与制作中订单数，用于消息入口角标 */
-export function kitchenOrderSummary() {
-  return request<{ pendingCount: number; cookingCount: number }>({
-    url: "/meal/order/kitchen/summary",
-  });
-}
-
-/** 当前厨师跳过待接单订单；服务端按家庭+厨师持久记录 */
-export function skipKitchenOrder(orderId: number) {
-  return requestVoid({ url: `/meal/order/kitchen/skip/${orderId}`, method: "PUT" });
-}
-
 /** 接单 */
 export function acceptOrder(orderId: number) {
   return requestVoid({ url: `/meal/order/accept/${orderId}`, method: "PUT" });
+}
+
+/** 拒绝这张单：指派单按配置转公开或关闭；公开单在最后一人拒绝时立即关闭 */
+export function refuseOrder(orderId: number) {
+  return requestVoid({ url: `/meal/order/refuse/${orderId}`, method: "PUT" });
 }
 
 /** 标记完成 */
@@ -54,7 +63,7 @@ export function finishOrder(orderId: number) {
   return requestVoid({ url: `/meal/order/finish/${orderId}`, method: "PUT" });
 }
 
-/** 轮询当前登录账号可读取的通知队列，不传客户端身份 ID */
-export function pollOrderNotifications(role: "user" | "chef") {
-  return request<OrderNotification[]>({ url: "/meal/notify/poll", data: { role } });
+/** 聚合轮询通知与厨师待办，不传客户端身份 ID */
+export function pollOrderOverview() {
+  return request<OrderNotifyOverview>({ url: "/meal/notify/overview" });
 }

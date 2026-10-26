@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
-import { submitOrder, type SubmitOrderItem } from "@/api/order";
+import { listOrderAssignees, submitOrder, type SubmitOrderItem } from "@/api/order";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { useCartStore } from "@/store/cart";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
+import type { OrderAssignee } from "@/types";
 
 const ORDER_REMARK_KEY = "meal-order-remark";
 
@@ -14,12 +15,44 @@ useOrderNotifierLifecycle();
 const orderRemark = ref("");
 const now = ref("");
 const submitting = ref(false);
+/** 可指派的厨师；空数组表示家里还没有厨师，禁止下单 */
+const assignees = ref<OrderAssignee[]>([]);
+/** 选中的厨师下标；-1 表示不指派（谁有空谁做） */
+const assignIndex = ref(-1);
+/** 可指派列表是否仍在加载，避免把「加载中」误判成「没有厨师」 */
+const assigneesLoading = ref(true);
 
 onLoad(() => {
   const saved = uni.getStorageSync(ORDER_REMARK_KEY);
   orderRemark.value = typeof saved === "string" ? saved : "";
   now.value = formatNow();
+  loadAssignees();
 });
+
+/** 拉取本家庭可指派的厨师；失败时按「没有厨师」处理，不允许提交 */
+async function loadAssignees() {
+  assigneesLoading.value = true;
+  try {
+    assignees.value = (await listOrderAssignees()) || [];
+  } catch (e) {
+    assignees.value = [];
+  } finally {
+    assigneesLoading.value = false;
+  }
+}
+
+/** 指派选择器的展示文案：不指派 + 每位厨师 */
+const assignOptions = computed(() => [
+  "不指派（谁有空谁做）",
+  ...assignees.value.map((item) => item.nickName),
+]);
+
+/** 没有可指派厨师时不允许下单，避免产生永远没人接的单 */
+const noChef = computed(() => !assigneesLoading.value && assignees.value.length === 0);
+
+function pickAssignee(index: number) {
+  assignIndex.value = index;
+}
 
 const totalCount = computed(() => cartStore.totalCount);
 const dishKinds = computed(() => cartStore.dishKinds);
@@ -37,6 +70,10 @@ async function submit() {
     uni.showToast({ title: "购物车是空的", icon: "none" });
     return;
   }
+  if (noChef.value) {
+    uni.showToast({ title: "家里还没有厨师，暂时无法下单", icon: "none" });
+    return;
+  }
   if (submitting.value) {
     return;
   }
@@ -47,7 +84,14 @@ async function submit() {
       count: line.count,
       remark: line.remark,
     }));
-    const orderId = await submitOrder({ items, orderRemark: orderRemark.value });
+    // 下标 0 是「不指派」，其余对应 assignees 中的厨师
+    const assignUserId =
+      assignIndex.value > 0 ? assignees.value[assignIndex.value - 1]?.userId ?? null : null;
+    const orderId = await submitOrder({
+      items,
+      orderRemark: orderRemark.value,
+      assignUserId,
+    });
     cartStore.clear();
     uni.removeStorageSync(ORDER_REMARK_KEY);
     uni.showToast({ title: "下单成功", icon: "none" });
@@ -90,6 +134,26 @@ async function submit() {
     </view>
 
     <view class="card">
+      <text class="section-title">指派厨师</text>
+      <view v-if="assigneesLoading" class="assign-hint">正在加载可指派的厨师…</view>
+      <view v-else-if="noChef" class="assign-hint assign-hint--warn">
+        家里还没有厨师，暂时无法下单
+      </view>
+      <view v-else class="assign-options">
+        <view
+          v-for="(label, index) in assignOptions"
+          :key="index"
+          class="assign-option"
+          :class="{ 'assign-option--on': assignIndex === index }"
+          @click="pickAssignee(index)"
+        >
+          <text class="assign-option__text">{{ label }}</text>
+          <view v-if="assignIndex === index" class="assign-option__check"></view>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
       <text class="section-title">备注</text>
       <input
         v-model="orderRemark"
@@ -101,8 +165,12 @@ async function submit() {
 
     <view class="note">提交后厨师会收到通知，制作完成后可在订单详情评价</view>
 
-    <view class="submit" :class="{ 'submit--disabled': submitting }" @click="submit">
-      {{ submitting ? "提交中…" : "提交订单" }}
+    <view
+      class="submit"
+      :class="{ 'submit--disabled': submitting || noChef }"
+      @click="submit"
+    >
+      {{ submitting ? "提交中…" : noChef ? "暂无厨师可接单" : "提交订单" }}
     </view>
   </view>
 </template>
@@ -149,6 +217,49 @@ async function submit() {
 
 .ph {
   color: $lg-ink-3;
+}
+
+.assign-hint {
+  font-size: 26rpx;
+  color: $lg-ink-2;
+}
+
+.assign-hint--warn {
+  color: $meal-warning;
+}
+
+.assign-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.assign-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  border-radius: 20rpx;
+  border: 1rpx solid $lg-line;
+  background-color: $lg-fill-2;
+}
+
+.assign-option--on {
+  border-color: $lg-accent;
+  background-color: $lg-accent-soft;
+}
+
+.assign-option__text {
+  font-size: 26rpx;
+  color: $lg-ink;
+}
+
+.assign-option__check {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
 }
 
 .note {

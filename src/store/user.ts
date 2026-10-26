@@ -42,18 +42,20 @@ export const useUserStore = defineStore("user", {
      * 登录后默认落到哪一边用它判断：厨师进工作台，点餐员与家庭管理员都进点餐区。
      */
     isChef: (state): boolean => state.roles.includes(ROLE_CHEF),
-    /** 能进厨师工作台的角色（厨师本人 + 家庭管理员，后者有接单与完成权限） */
-    canKitchen: (state): boolean =>
-      state.roles.includes(ROLE_CHEF) || state.roles.includes(ROLE_MANAGER),
+    /**
+     * 能否进厨师工作台
+     *
+     * 只有厨师能进：接单资格由订单候选人决定，候选人只包含 meal_chef，
+     * 家庭管理员即使能打开工作台也接不了单，因此不再提供入口。
+     */
+    canKitchen: (state): boolean => state.roles.includes(ROLE_CHEF),
     /**
      * 底部导航该用哪一套 tab
      *
      * 只有「能进厨房 + 当前确实在厨房视图」才用厨师那套，其余一律点餐那套。
      */
     tabMode: (state): ViewMode =>
-      state.viewMode === "kitchen" && (state.roles.includes(ROLE_CHEF) || state.roles.includes(ROLE_MANAGER))
-        ? "kitchen"
-        : "eater",
+      state.viewMode === "kitchen" && state.roles.includes(ROLE_CHEF) ? "kitchen" : "eater",
     isManager: (state): boolean => state.roles.includes(ROLE_MANAGER),
     nickName: (state): string => state.user?.nickName || state.user?.userName || "",
     /**

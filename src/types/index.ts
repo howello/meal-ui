@@ -70,7 +70,7 @@ export interface Order {
   deptId?: number;
   userId?: number;
   userName?: string;
-  /** 0待接单 1制作中 2已完成 3已取消 */
+  /** 0待接单 1制作中 2已完成 3已取消 4无人接单 */
   status: string;
   totalCount?: number;
   orderRemark?: string;
@@ -80,6 +80,14 @@ export interface Order {
   finishTime?: string;
   cancelTime?: string;
   createTime?: string;
+  /** 指派模式：0公开抢单 1指派中 2指派已转公开 */
+  assignMode?: string;
+  /** 被指派的厨师昵称（下单时快照） */
+  assignUserName?: string;
+  /** 接单截止时间 */
+  deadlineTime?: string;
+  /** 关闭原因：1用户取消 2超时 3全员拒绝 */
+  closeReason?: string;
   items?: OrderItem[];
   /** 后端计算的已等待分钟数 */
   waitMinutes?: number;
@@ -92,7 +100,7 @@ export interface Order {
 /** 订单流转通知 */
 export interface OrderNotification {
   id: string;
-  type: "NEW_ORDER" | "ORDER_ACCEPTED" | "ORDER_COMPLETED" | "ORDER_RATED";
+  type: "NEW_ORDER" | "ORDER_ACCEPTED" | "ORDER_COMPLETED" | "ORDER_RATED" | "ORDER_UNACCEPTED";
   orderId: number;
   title: string;
   content: string;
@@ -183,6 +191,8 @@ export const ORDER_STATUS = {
   COOKING: "1",
   FINISHED: "2",
   CANCELED: "3",
+  /** 无人接单：超时或全部候选人都拒绝 */
+  UNACCEPTED: "4",
 } as const;
 
 /** 订单状态文案 */
@@ -191,7 +201,21 @@ export const ORDER_STATUS_TEXT: Record<string, string> = {
   "1": "制作中",
   "2": "已完成",
   "3": "已取消",
+  "4": "无人接单",
 };
+
+/** 指派模式：公开抢单 / 指派中 / 指派已转公开 */
+export const ASSIGN_MODE = {
+  PUBLIC: "0",
+  ASSIGNED: "1",
+  REOPENED: "2",
+} as const;
+
+/** 可指派的厨师（确认下单页选择器） */
+export interface OrderAssignee {
+  userId: number;
+  nickName: string;
+}
 
 /** 提案状态文案 */
 export const PROPOSAL_STATUS_TEXT: Record<string, string> = {
