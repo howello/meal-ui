@@ -94,10 +94,9 @@ async function submit() {
     });
     cartStore.clear();
     uni.removeStorageSync(ORDER_REMARK_KEY);
-    uni.showToast({ title: "下单成功", icon: "none" });
-    setTimeout(() => {
-      uni.redirectTo({ url: `/pages/order/detail?orderId=${orderId}` });
-    }, 700);
+    // 拿到订单号后立刻跳详情，不再等 700ms 的提示动画；
+    // 「下单成功」由详情页在数据加载完成后提示（created=1）。
+    uni.redirectTo({ url: `/pages/order/detail?orderId=${orderId}&created=1` });
   } catch (e) {
     // 失败提示已由请求层统一弹出
   } finally {
@@ -170,7 +169,8 @@ async function submit() {
       :class="{ 'submit--disabled': submitting || noChef }"
       @click="submit"
     >
-      {{ submitting ? "提交中…" : noChef ? "暂无厨师可接单" : "提交订单" }}
+      <view v-if="submitting" class="submit__spinner"></view>
+      {{ submitting ? "正在提交…" : noChef ? "暂无厨师可接单" : "提交订单" }}
     </view>
   </view>
 </template>
@@ -283,6 +283,25 @@ async function submit() {
   font-weight: 700;
   background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
   box-shadow: 0 24rpx 52rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+/* 提交中的细环转圈：与按钮文字同排，给网络请求一个明确反馈 */
+.submit__spinner {
+  display: inline-block;
+  width: 30rpx;
+  height: 30rpx;
+  margin-right: 12rpx;
+  vertical-align: -5rpx;
+  border: 4rpx solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: submit-spin 0.8s linear infinite;
+}
+
+@keyframes submit-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .submit--disabled {

@@ -49,13 +49,26 @@ function hint(proposal: Proposal): string {
   }
   return "AI 正在自动审核，通过后会自动上架";
 }
+
+/** 打开提案详情：提交内容、AI 补齐的菜谱与审核信息都在详情页 */
+function openDetail(proposal: Proposal) {
+  if (!proposal.proposalId) {
+    return;
+  }
+  uni.navigateTo({ url: `/pages/proposal/detail?proposalId=${proposal.proposalId}` });
+}
 </script>
 
 <template>
   <view class="page-body" :class="themeRootClass">
     <GlassNavBar title="我的提案" />
 
-    <view v-for="proposal in proposals" :key="proposal.proposalId" class="card">
+    <view
+      v-for="proposal in proposals"
+      :key="proposal.proposalId"
+      class="card"
+      @click="openDetail(proposal)"
+    >
       <view class="row-between">
         <text class="name">{{ proposal.name }}</text>
         <text :class="statusClass(proposal.status)">{{ statusText(proposal.status) }}</text>
@@ -67,6 +80,10 @@ function hint(proposal: Proposal): string {
       <view class="note" :class="{ 'note--err': proposal.status === '2', 'note--gray': proposal.status === '1' }">
         <template v-if="proposal.auditRemark">审核意见：{{ proposal.auditRemark }}</template>
         <template v-else>{{ hint(proposal) }}</template>
+      </view>
+      <view class="more">
+        <text class="more__text">查看详情</text>
+        <text class="more__chev">›</text>
       </view>
     </view>
 
@@ -103,6 +120,28 @@ function hint(proposal: Proposal): string {
 .note--err {
   background-color: $lg-danger-soft;
   color: $lg-danger;
+}
+
+/* 卡片底部「查看详情」入口：靠右的强调色小链接 */
+.more {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4rpx;
+  margin-top: 14rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx solid $lg-line;
+}
+
+.more__text {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: $lg-accent;
+}
+
+.more__chev {
+  font-size: 26rpx;
+  color: $lg-accent;
 }
 
 .tag {

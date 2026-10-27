@@ -1,7 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 
-withDefaults(defineProps<{ title?: string }>(), { title: "" });
+/**
+ * 导航栏属性
+ *
+ * `hideBack` 默认 false，跟随页面栈自动判断是否显示返回键；
+ * 设为 true 可强制隐藏，用于「今天吃什么 / 购物车 / 个人中心」这类带底部导航、
+ * 随时可以切走的根级页面。
+ */
+const props = withDefaults(defineProps<{ title?: string; hideBack?: boolean }>(), {
+  title: "",
+  hideBack: false,
+});
 
 /**
  * 是否显示返回键：跟随页面栈，和原生导航栏一致。
@@ -10,11 +20,14 @@ withDefaults(defineProps<{ title?: string }>(), { title: "" });
  * navigateTo 进来的二级页栈长 > 1，显示。每次导航都会新建页面实例，
  * onMounted 时页面栈已就绪，取一次即可。
  */
-const showBack = ref(false);
+const autoShowBack = ref(false);
 
 onMounted(() => {
-  showBack.value = getCurrentPages().length > 1;
+  autoShowBack.value = getCurrentPages().length > 1;
 });
+
+/** 最终是否显示返回键：hideBack 优先于页面栈判断 */
+const backVisible = computed(() => !props.hideBack && autoShowBack.value);
 
 function goBack() {
   uni.navigateBack({ delta: 1 });
@@ -25,7 +38,7 @@ function goBack() {
   <view class="gnb">
     <view class="gnb__row">
       <view class="gnb__side">
-        <view v-if="showBack" class="gnb__back" @click="goBack">
+        <view v-if="backVisible" class="gnb__back" @click="goBack">
           <text class="gnb__back-ic">‹</text>
         </view>
       </view>
