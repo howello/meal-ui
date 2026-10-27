@@ -15,11 +15,14 @@ const userStore = useUserStore();
 const orderId = ref(0);
 const order = ref<Order | null>(null);
 const loading = ref(true);
+/** 是否刚下单跳转过来：数据加载完成后补一条「下单成功」提示 */
+const justCreated = ref(false);
 /** 是否本人下的订单：厨师查看自己制作过的订单时，不显示点餐人的取消/评价操作 */
 const isMine = computed(() => !!order.value && order.value.userId === userStore.user?.userId);
 
 onLoad((options) => {
   orderId.value = Number(options?.orderId || 0);
+  justCreated.value = options?.created === "1";
 });
 
 onShow(() => {
@@ -32,6 +35,12 @@ async function loadDetail() {
   loading.value = true;
   try {
     order.value = await orderDetail(orderId.value);
+    // 下单页在拿到订单号后直接跳到详情：成功提示放在数据真正渲染之后，
+    // 用户看到的是「订单已出现的详情页 + 一条轻提示」，而不是空白页等待。
+    if (justCreated.value && order.value) {
+      justCreated.value = false;
+      uni.showToast({ title: "下单成功", icon: "none" });
+    }
   } catch (e) {
     order.value = null;
   } finally {

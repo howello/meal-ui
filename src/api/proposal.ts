@@ -1,5 +1,5 @@
 import type { Proposal } from "@/types";
-import { requestPage, requestVoid } from "@/utils/request";
+import { request, requestPage, requestVoid } from "@/utils/request";
 
 export interface SubmitProposalBody {
   name: string;
@@ -25,4 +25,9 @@ export function submitProposal(data: SubmitProposalBody) {
 /** 我的提案 */
 export function myProposals(params?: { pageNum?: number; pageSize?: number }) {
   return requestPage<Proposal>({ url: "/meal/proposal/my", data: params });
+}
+
+/** 提案详情（含提交内容、AI 补齐的菜谱字段与审核信息） */
+export function proposalDetail(proposalId: number) {
+  return request<Proposal>({ url: `/meal/proposal/${proposalId}` });
 }

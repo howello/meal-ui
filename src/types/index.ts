@@ -122,6 +122,22 @@ export interface Review {
   anonymous?: string;
   userName?: string;
   createTime?: string;
+  /** 订单下单时间 */
+  orderCreateTime?: string;
+  /** 订单整体备注 */
+  orderRemark?: string;
+  /** 订单总份数 */
+  orderTotalCount?: number;
+  /** 订单状态（0待接单 1制作中 2已完成 3已取消 4无人接单） */
+  orderStatus?: string;
+  /** 接单厨师昵称（谁做的这顿饭） */
+  acceptBy?: string;
+  /** 接单时间 */
+  acceptTime?: string;
+  /** 完成时间 */
+  finishTime?: string;
+  /** 订单明细快照（含菜品封面、份数与单项备注） */
+  items?: OrderItem[];
 }
 
 /** 新菜提案 */

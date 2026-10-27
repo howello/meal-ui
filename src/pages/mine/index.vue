@@ -159,7 +159,7 @@ function onAvatarTap() {
 
 <template>
   <view class="app-fixed app-fixed--topnav" :class="themeRootClass">
-    <GlassNavBar title="个人中心" />
+    <GlassNavBar title="个人中心" hide-back />
 
     <view class="app-fixed__scroll app-fixed__scroll--tabbed">
       <GlassCard class="profile">

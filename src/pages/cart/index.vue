@@ -158,7 +158,7 @@ function goConfirm() {
 
 <template>
   <view class="app-fixed app-fixed--topnav" :class="themeRootClass">
-    <GlassNavBar title="购物车">
+    <GlassNavBar title="购物车" hide-back>
       <template #right>
         <view class="nav-actions">
           <text v-if="!cartStore.isEmpty" class="nav-clear" @click="clearAll">清空</text>

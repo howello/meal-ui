@@ -720,7 +720,7 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
 
 <template>
   <view class="app-fixed app-fixed--topnav" :class="themeRootClass">
-    <GlassNavBar title="今天吃什么">
+    <GlassNavBar title="今天吃什么" hide-back>
       <template #right>
         <KitchenMessageButton />
       </template>

@@ -115,6 +115,7 @@ function doCancel(order: Order) {
   <view class="page-body" :class="themeRootClass">
     <GlassNavBar :title="title" />
 
+    <!-- 状态筛选：五个等宽分段塞进一条玻璃胶囊，小屏也不会换行 -->
     <view class="filters">
       <view
         v-for="item in FILTERS"
@@ -171,20 +172,32 @@ function doCancel(order: Order) {
 </template>
 
 <style lang="scss" scoped>
+/* 状态筛选条：五个胶囊在一行内等分铺满，窄屏只压缩不换行 */
 .filters {
   display: flex;
-  gap: 16rpx;
+  align-items: center;
+  gap: 10rpx;
+  width: 100%;
   margin-bottom: 20rpx;
 }
 
-/* 筛选 chip：玻璃胶囊，选中态暖橙渐变 */
+/* 筛选 chip：五等分铺满一行，选中态暖橙渐变。
+   flex:1 + min-width:0 保证再窄的屏也只在各自格子里收缩，不会换行。 */
 .chip {
-  padding: 10rpx 28rpx;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10rpx 0;
+  text-align: center;
+  white-space: nowrap;
   border-radius: 999rpx;
   background: $lg-fill-2;
   border: 1rpx solid $lg-border;
   color: $lg-ink-2;
   font-size: 24rpx;
+  line-height: 1.2;
 }
 
 .chip--on {
