@@ -41,6 +41,9 @@ const signatures = ref<Dish[]>([]);
 const activeCategoryId = ref<number | SpecialGroupKey | undefined>(undefined);
 const keyword = ref("");
 const loading = ref(false);
+const menuError = ref("");
+let menuLoadVersion = 0;
+let renderedOwner = "";
 const refreshing = ref(false);
 /* 右侧滚动容器 .menu-dishes 的受控滚动目标（海底捞式：点左侧后平滑跳到该分组顶）
    滚动事件驱动的高亮在 computeActiveGroup 中更新 */
@@ -95,9 +98,21 @@ onShow(async () => {
       return;
     }
   } else {
-    // 已从本地缓存恢复身份：先渲染，再后台刷新一次，token 失效由请求层踢回登录
-    userStore.refreshInfo();
+    // 确认家庭归属后才使用私有菜单缓存，避免账号迁移家庭后展示旧数据。
+    try {
+      await userStore.fetchInfo();
+    } catch (e) {
+      return;
+    }
   }
+  const owner = `${userStore.user?.userId}:${userStore.user?.deptId}`;
+  if (renderedOwner && renderedOwner !== owner) {
+    categories.value = [];
+    dishes.value = [];
+    signatures.value = [];
+    menuLoadVersion += 1;
+  }
+  renderedOwner = owner;
   // 编辑/删除后清空进程内菜单快照，确保从详情或编辑页返回时一定重拉
   if (consumeMenuDirty()) {
     getMenuCache().clear();
@@ -133,21 +148,35 @@ function applyMenuSnapshot(snapshot: MenuSnapshot) {
 
 /** 强制拉取分类与全量菜品，成功后刷新内存快照并重新测量高亮 */
 async function refreshAll(showSkeleton = false) {
-  keyword.value = "";
-  await Promise.all([loadCategories(), loadDishes(showSkeleton), loadSignatures()]);
-  const cache = getMenuCache();
-  cache?.set({
-    categories: categories.value,
-    dishes: dishes.value,
-    signatures: signatures.value,
-  });
-  activeCategoryId.value = undefined;
-  scrollTo.value = 0;
-  scrolledTop = 0;
-  scrollContentHeight = 0;
-  warmUpCovers();
-  await nextTick();
-  await measureAndHighlight();
+  const token = userStore.token;
+  const sessionVersion = userStore.sessionVersion;
+  const requestVersion = ++menuLoadVersion;
+  if (showSkeleton && !dishes.value.length) loading.value = true;
+  menuError.value = "";
+  try {
+    const [categoryPage, dishPage, recommended] = await Promise.all([
+      listCategory(), listDish({}), listSignatureDishes(),
+    ]);
+    if (token !== userStore.token || sessionVersion !== userStore.sessionVersion || requestVersion !== menuLoadVersion) return;
+    const snapshot: MenuSnapshot = {
+      categories: categoryPage.rows, dishes: dishPage.rows, signatures: recommended,
+    };
+    applyMenuSnapshot(snapshot);
+    getMenuCache().set(snapshot);
+    keyword.value = "";
+    activeCategoryId.value = undefined;
+    scrollTo.value = 0;
+    scrolledTop = 0;
+    scrollContentHeight = 0;
+    await nextTick();
+    await measureAndHighlight();
+  } catch (e) {
+    if (token === userStore.token && requestVersion === menuLoadVersion) {
+      menuError.value = "菜单加载失败，请下拉重试";
+    }
+  } finally {
+    if (requestVersion === menuLoadVersion) loading.value = false;
+  }
 }
 
 /** 首次进入页面或无内存快照时拉取 */
@@ -174,51 +203,6 @@ function warmUpCovers() {
 /* ============ 下拉刷新：调大阈值让下拉更「沉」，做出阻尼感 ============ */
 /** 下拉阈值（px），与模板 refresher-threshold 保持一致 */
 const REFRESHER_THRESHOLD = 80;
-
-async function loadCategories() {
-  try {
-    const res = await listCategory();
-    categories.value = res.rows;
-    if (
-      activeCategoryId.value !== undefined &&
-      activeCategoryId.value !== "signature" &&
-      activeCategoryId.value !== "recent" &&
-      !res.rows.some((item) => item.categoryId === activeCategoryId.value)
-    ) {
-      activeCategoryId.value = undefined;
-    }
-  } catch (e) {
-    categories.value = [];
-    activeCategoryId.value = undefined;
-  }
-}
-
-/** 拉取菜品；showSkeleton 仅在「列表本来就空」的首屏/搜索场景置真，
-    下拉刷新时不换骨架屏，否则整个菜品流会被卸载重挂载、图片跟着闪一下 */
-async function loadDishes(showSkeleton = false) {
-  if (showSkeleton) {
-    loading.value = true;
-  }
-  try {
-    const res = await listDish({});
-    dishes.value = res.rows;
-  } catch (e) {
-    dishes.value = [];
-  } finally {
-    loading.value = false;
-  }
-  await nextTick();
-  await measureAndHighlight();
-}
-
-/** 拉取招牌推荐位；失败时保持空列表（招牌为空则不展示该分组） */
-async function loadSignatures() {
-  try {
-    signatures.value = await listSignatureDishes();
-  } catch (e) {
-    signatures.value = [];
-  }
-}
 
 /* 分类 icon：接口有就用，没有则按顺序给默认 icon（与参考 Demo 的 CATS 图标一致） */
 const DEFAULT_CATEGORY_ICONS = ["🔥", "🥗", "🍲", "🍚", "🍖", "🥦", "🍮", "🌶️"];
@@ -301,7 +285,7 @@ function groupTarget(g: MenuGroup): number | SpecialGroupKey {
 
 /* 没有菜品时的空态 */
 const emptyText = computed(() =>
-  loading.value ? "" : "还没有菜，去管理端点几道吧",
+  loading.value ? "" : menuError.value || "还没有菜，去管理端点几道吧",
 );
 
 /**

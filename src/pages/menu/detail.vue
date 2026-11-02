@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onLoad, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
-import { getDish } from "@/api/dish";
+import { getDish, getDishAiTask } from "@/api/dish";
 import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import { useCartStore } from "@/store/cart";
@@ -11,6 +11,7 @@ import type { Dish, Ingredient } from "@/types";
 import { svgIcon } from "@/utils/icons";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
 import { previewImage } from "@/utils/preview";
+import { clearMenuCache, markMenuDirty } from "@/utils/menuCache";
 
 const cartStore = useCartStore();
 const userStore = useUserStore();
@@ -46,6 +47,7 @@ onLoad(async (options) => {
     userStore.refreshInfo();
   }
   await loadDish();
+  pollAiUpdate();
   if (!userStore.permissions.length) {
     userStore.refreshInfo();
   }
@@ -65,49 +67,57 @@ onShow(() => {
  */
 const AI_PENDING_KEY = "meal-dish-ai-pending";
 let aiPollTimer: ReturnType<typeof setTimeout> | null = null;
+let aiPollVersion = 0;
 
+/** 根据真实任务状态刷新，不以菜品内容变化猜测 AI 是否成功。 */
 function pollAiUpdate() {
-  const pending = Number(uni.getStorageSync(AI_PENDING_KEY) || 0);
-  if (!pending || pending !== dishId.value) {
-    return;
-  }
-  // 记录当前内容摘要：轮询到内容变化即视为异步更新完成，停止轮询
-  const before = dishSignature();
+  stopAiPolling();
+  const pending = uni.getStorageSync(AI_PENDING_KEY) as { dishId?: number; taskId?: string; owner?: string } | undefined;
+  if (!pending?.taskId || pending.dishId !== dishId.value
+      || pending.owner !== `${userStore.user?.userId}:${userStore.user?.deptId}`) return;
+  const taskId = pending.taskId;
+  const version = aiPollVersion;
   let attempts = 0;
   const poll = async () => {
+    if (version !== aiPollVersion) return;
     attempts += 1;
-    await loadDish(true);
-    if (dishSignature() !== before) {
-      uni.removeStorageSync(AI_PENDING_KEY);
-      uni.showToast({ title: "AI 更新已完成", icon: "none" });
+    try {
+      const result = await getDishAiTask(taskId);
+      if (version !== aiPollVersion) return;
+      if (result.state === "SUCCEEDED" || result.state === "FAILED") {
+        uni.removeStorageSync(AI_PENDING_KEY);
+        if (result.state === "SUCCEEDED") {
+          clearMenuCache();
+          markMenuDirty();
+          await loadDish(true);
+        }
+        if (version !== aiPollVersion) return;
+        uni.showToast({ title: result.state === "SUCCEEDED" ? "AI 更新已完成" : result.message, icon: "none" });
+        return;
+      }
+    } catch (e) {
+      // 保留标记，下次显示页面时重试；网络故障时不连续弹出提示。
       return;
     }
-    if (attempts >= 6) {
-      uni.removeStorageSync(AI_PENDING_KEY);
+    if (version !== aiPollVersion) return;
+    if (attempts >= 40) {
+      uni.showToast({ title: "仍在处理中，可稍后返回查看", icon: "none" });
       return;
     }
     aiPollTimer = setTimeout(poll, 3000);
   };
-  aiPollTimer = setTimeout(poll, 1500);
+  aiPollTimer = setTimeout(poll, 1000);
 }
 
-/** 菜品内容摘要：用于判断异步 AI 更新是否已落库 */
-function dishSignature(): string {
-  const item = dish.value;
-  if (!item) {
-    return "";
-  }
-  return [item.description, item.tags, item.ingredients, item.steps, item.tips, item.duration, item.level, item.serve, item.kcal]
-    .map((value) => value || "")
-    .join("|");
+/** 页面不可见后使在途回调失效，防止后台继续轮询或更新界面。 */
+function stopAiPolling() {
+  aiPollVersion += 1;
+  if (aiPollTimer) clearTimeout(aiPollTimer);
+  aiPollTimer = null;
 }
 
-onUnload(() => {
-  if (aiPollTimer) {
-    clearTimeout(aiPollTimer);
-    aiPollTimer = null;
-  }
-});
+onHide(stopAiPolling);
+onUnload(stopAiPolling);
 
 async function loadDish(silent = false) {
   if (!silent) {

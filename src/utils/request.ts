@@ -1,5 +1,6 @@
-import { getToken, removeToken } from "./auth";
+import { getToken } from "./auth";
 import { BASE_API } from "./env";
+import { useUserStore } from "@/store/user";
 
 /** 后端统一响应体 */
 export interface ApiResult<T = any> {
@@ -26,7 +27,7 @@ export interface RequestOptions {
 let redirecting = false;
 
 function toLogin(): void {
-  removeToken();
+  useUserStore().reset();
   if (redirecting) {
     return;
   }
@@ -50,6 +51,7 @@ function toLogin(): void {
 
 function doRequest(options: RequestOptions): Promise<ApiResult> {
   const token = getToken();
+  const sessionVersion = useUserStore().sessionVersion;
   const header: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -64,6 +66,11 @@ function doRequest(options: RequestOptions): Promise<ApiResult> {
       data: options.data,
       header,
       success: (res) => {
+        // 旧会话的响应既不能回填新账号，也不能将新账号踢回登录页。
+        if (token !== getToken() || sessionVersion !== useUserStore().sessionVersion) {
+          reject(new Error("登录会话已切换，请重新操作"));
+          return;
+        }
         const status = res.statusCode;
         if (status === 401) {
           toLogin();
@@ -93,6 +100,10 @@ function doRequest(options: RequestOptions): Promise<ApiResult> {
         resolve(body);
       },
       fail: () => {
+        if (token !== getToken() || sessionVersion !== useUserStore().sessionVersion) {
+          reject(new Error("登录会话已切换"));
+          return;
+        }
         uni.showToast({ title: "网络异常，请稍后重试", icon: "none" });
         reject(new Error("网络异常"));
       },
