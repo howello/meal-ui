@@ -50,7 +50,9 @@ export interface OrderRefreshThrottle {
 /** 生成仅用于隔离前端去重缓存和在途响应的当前会话标识。 */
 function getSessionKey(): string {
   const userStore = useUserStore();
-  return userStore.isLogin ? `${userStore.user?.userId ?? "unknown"}:${userStore.token}` : "";
+  return userStore.isLogin
+    ? `${userStore.user?.userId ?? "unknown"}:${userStore.user?.deptId ?? "unknown"}:${userStore.token}:${userStore.sessionVersion}`
+    : "";
 }
 
 /** 清空空闲退避状态，下一次通知后重新按 5 秒轮询。 */

@@ -48,7 +48,7 @@ export function deleteDish(dishId: number) {
 
 /** 强制按菜名与图片描述重新生成封面，返回永久地址 */
 export function regenerateDishCover(data: { name: string; imageDescription: string }) {
-  return request<{ cover?: string; imageError?: string }>({
+  return request<{ cover?: string; imageError?: string; transferStatus?: string; transferTaskId?: string }>({
     url: "/meal/dish/ai-generate/cover",
     method: "POST",
     data: { ...data, forceRegenerate: true, current: { cover: "" } },
@@ -61,5 +61,19 @@ export function regenerateDishCover(data: { name: string; imageDescription: stri
  * 接口校验权限后立即返回，提取与保存在线程池执行；调用成功后应返回详情页稍后刷新。
  */
 export function aiUpdateDish(data: { dishId: number; text: string }) {
-  return requestVoid({ url: "/meal/dish/ai-update", method: "POST", data });
+  return request<{ taskId: string }>({ url: "/meal/dish/ai-update", method: "POST", data });
+}
+
+/** 查询本人提交的菜品 AI 更新任务，状态以服务端执行结果为准。 */
+export function getDishAiTask(taskId: string) {
+  return request<{ state: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED"; message: string }>({
+    url: `/meal/dish/ai-update/task/${encodeURIComponent(taskId)}`,
+  });
+}
+
+/** 查询当前用户生成图片的转存结果，失败或超时不能视为图片已保存。 */
+export function getImageTransferTask(taskId: string) {
+  return request<{ state: "READY" | "PENDING_TRANSFER" | "FAILED"; message: string }>({
+    url: `/ai/image-transfer/${encodeURIComponent(taskId)}`,
+  });
 }

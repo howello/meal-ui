@@ -1,5 +1,6 @@
 /** 菜单内存快照结构：只在 App 运行期间保留，不写入 storage */
 import type { Category, Dish } from "@/types";
+import { getToken } from "@/utils/auth";
 
 export interface MenuSnapshot {
   categories: Category[];
@@ -18,13 +19,18 @@ let menuCache: { get(): MenuSnapshot | null; set(snapshot: MenuSnapshot): void; 
 export function getMenuCache(): { get(): MenuSnapshot | null; set(snapshot: MenuSnapshot): void; clear(): void } {
   if (!menuCache) {
     let snapshot: MenuSnapshot | null = null;
+    let owner = "";
+    let savedAt = 0;
     menuCache = {
-      get: () => snapshot,
+      get: () => owner === getToken() && Date.now() - savedAt < 60_000 ? snapshot : null,
       set: (value: MenuSnapshot) => {
         snapshot = value;
+        owner = getToken();
+        savedAt = Date.now();
       },
       clear: () => {
         snapshot = null;
+        owner = "";
       },
     };
   }

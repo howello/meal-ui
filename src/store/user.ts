@@ -3,12 +3,16 @@ import { getInfo, logout as logoutApi } from "@/api/auth";
 import { ROLE_CHEF, ROLE_MANAGER, type UserInfo, type ViewMode } from "@/types";
 import { getToken, removeToken, setToken } from "@/utils/auth";
 import { stopOrderNotifier } from "@/utils/notify";
+import { clearMenuCache } from "@/utils/menuCache";
+import { useCartStore } from "@/store/cart";
 
 const VIEW_MODE_KEY = "meal-view-mode";
 /** 用户资料/角色/权限的本地缓存，用于冷启动直接恢复身份、跳过等待网络 */
 const USER_CACHE_KEY = "meal-user-cache";
 
 interface UserState {
+  /** 进程内会话代数，账号或家庭变化时使在途响应失效。 */
+  sessionVersion: number;
   token: string;
   user: UserInfo | null;
   roles: string[];
@@ -28,6 +32,7 @@ interface UserState {
  */
 export const useUserStore = defineStore("user", {
   state: (): UserState => ({
+    sessionVersion: 0,
     token: "",
     user: null,
     roles: [],
@@ -109,6 +114,9 @@ export const useUserStore = defineStore("user", {
       }
     },
     setToken(token: string) {
+      if (this.token !== token) {
+        this.reset();
+      }
       this.token = token;
       setToken(token);
     },
@@ -121,7 +129,18 @@ export const useUserStore = defineStore("user", {
       uni.setStorageSync(VIEW_MODE_KEY, mode);
     },
     async fetchInfo() {
+      const sessionToken = this.token;
+      const sessionVersion = this.sessionVersion;
       const res = await getInfo();
+      if (this.token !== sessionToken || this.sessionVersion !== sessionVersion) {
+        throw new Error("登录会话已切换");
+      }
+      if (this.user && this.user.deptId !== res.user.deptId) {
+        this.sessionVersion += 1;
+        clearMenuCache();
+        useCartStore().clear();
+        uni.removeStorageSync("meal-dish-ai-pending");
+      }
       this.user = res.user;
       this.roles = res.roles || [];
       this.permissions = res.permissions || [];
@@ -144,15 +163,21 @@ export const useUserStore = defineStore("user", {
       void this.fetchInfo().catch(() => {});
     },
     async logout() {
+      const sessionToken = this.token;
       try {
         await logoutApi();
       } catch (e) {
         // 后端登出失败不影响本地清理
       }
-      this.reset();
+      if (this.token === sessionToken) {
+        this.reset();
+      }
     },
     reset() {
+      this.sessionVersion += 1;
       stopOrderNotifier();
+      clearMenuCache();
+      useCartStore().clear();
       this.token = "";
       this.user = null;
       this.roles = [];
@@ -161,6 +186,7 @@ export const useUserStore = defineStore("user", {
       removeToken();
       uni.removeStorageSync(VIEW_MODE_KEY);
       uni.removeStorageSync(USER_CACHE_KEY);
+      uni.removeStorageSync("meal-dish-ai-pending");
     },
   },
 });

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onLoad } from "@dcloudio/uni-app";
 import { computed, reactive, ref } from "vue";
-import { aiUpdateDish, deleteDish, getDish, listCategory, regenerateDishCover, updateDish } from "@/api/dish";
+import { aiUpdateDish, deleteDish, getDish, getImageTransferTask, listCategory, regenerateDishCover, updateDish } from "@/api/dish";
 import { uploadImage } from "@/api/upload";
 import CachedImage from "@/components/CachedImage.vue";
 import GlassButton from "@/components/GlassButton.vue";
@@ -26,6 +26,7 @@ const submitting = ref(false);
 const uploading = ref(false);
 const deleting = ref(false);
 const regenerating = ref(false);
+const pendingCover = ref<{ taskId: string; cover: string } | null>(null);
 /** 图片操作底部弹层：上传 / 重新生成 */
 const imageActionVisible = ref(false);
 /** 重新生成封面的描述输入弹层 */
@@ -311,13 +312,30 @@ async function regenerateCover() {
       return;
     }
     form.cover = result.cover;
+    pendingCover.value = result.transferStatus === "PENDING_TRANSFER" && result.transferTaskId
+      ? { taskId: result.transferTaskId, cover: result.cover } : null;
     regenerateVisible.value = false;
-    uni.showToast({ title: "封面已重新生成，请保存", icon: "none" });
+    uni.showToast({ title: result.transferStatus === "PENDING_TRANSFER"
+      ? "封面正在转存，请确认显示正常后再保存" : "封面已重新生成，请保存", icon: "none" });
   } catch (e) {
     // 请求层已提示具体原因，弹层保留输入便于重试
   } finally {
     regenerating.value = false;
   }
+}
+
+/** 查询补偿状态；未保存或失败的占位图不能作为已就绪封面提交。 */
+async function checkCoverTransfer() {
+  const pending = pendingCover.value;
+  if (!pending) return;
+  const result = await getImageTransferTask(pending.taskId);
+  if (pendingCover.value?.taskId !== pending.taskId) return;
+  if (result.state === "READY") pendingCover.value = null;
+  if (result.state === "FAILED") {
+    if (form.cover === pending.cover) form.cover = "";
+    pendingCover.value = null;
+  }
+  uni.showToast({ title: result.message, icon: "none" });
 }
 
 /** 删除菜品：二次确认后调用后端逻辑删除，并让点餐区下次重新拉取 */
@@ -371,6 +389,10 @@ function serializeIngredients(list: Ingredient[]): string {
 }
 
 async function save() {
+  if (pendingCover.value?.cover === form.cover) {
+    await checkCoverTransfer();
+    if (pendingCover.value) return;
+  }
   const name = form.name.trim();
   if (!name) {
     uni.showToast({ title: "请填写菜名", icon: "none" });
@@ -422,9 +444,10 @@ async function aiUpdate() {
   }
   aiUpdating.value = true;
   try {
-    await aiUpdateDish({ dishId: dishId.value, text });
+    const task = await aiUpdateDish({ dishId: dishId.value, text });
     // 标记该菜品有待完成的异步 AI 更新，详情页返回后会短轮询刷新
-    uni.setStorageSync("meal-dish-ai-pending", dishId.value);
+    uni.setStorageSync("meal-dish-ai-pending", { dishId: dishId.value, taskId: task.taskId,
+      owner: `${userStore.user?.userId}:${userStore.user?.deptId}` });
     uni.showToast({ title: "已提交，AI 正在后台更新", icon: "none" });
     setTimeout(() => {
       uni.navigateBack({ delta: 1 });
@@ -469,6 +492,7 @@ async function aiUpdate() {
           </view>
         </view>
         <text class="cover__hint">{{ uploading ? "正在上传…" : "点击封面可更换图片" }}</text>
+        <button v-if="pendingCover && pendingCover.cover === form.cover" size="mini" @click="checkCoverTransfer">查看图片保存状态</button>
       </GlassCard>
 
       <GlassCard class="form">

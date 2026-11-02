@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import type { Dish } from "@/types";
+import { getToken } from "@/utils/auth";
 
 const CART_KEY = "meal-cart";
 
@@ -39,13 +40,17 @@ export const useCartStore = defineStore("cart", {
       }
       try {
         const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-        this.lines = Array.isArray(parsed) ? parsed : [];
+        this.lines = parsed?.session === getToken() && getToken() && Array.isArray(parsed.lines) ? parsed.lines : [];
       } catch (e) {
         this.lines = [];
       }
     },
     persist() {
-      uni.setStorageSync(CART_KEY, JSON.stringify(this.lines));
+      try {
+        uni.setStorageSync(CART_KEY, JSON.stringify({ session: getToken(), lines: this.lines }));
+      } catch (e) {
+        // 存储故障不影响内存操作，恢复时仍会检查会话归属。
+      }
     },
     add(dish: Dish, count = 1, remark = "") {
       const exist = this.lines.find((line) => line.dishId === dish.dishId);
@@ -90,7 +95,11 @@ export const useCartStore = defineStore("cart", {
     },
     clear() {
       this.lines = [];
-      this.persist();
+      try {
+        uni.removeStorageSync(CART_KEY);
+      } catch (e) {
+        // 即使无法删除，旧数据也无法通过新会话的归属检查。
+      }
     },
   },
 });

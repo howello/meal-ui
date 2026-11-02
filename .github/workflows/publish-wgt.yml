@@ -67,7 +67,7 @@ jobs:
         run: npm ci
 
       - name: 构建 App 产物
-        run: npm run build:app
+        run: npm run type-check && npm test && npm run build:app
 
       - name: 自动递增版本号、打包并发布
         env:
