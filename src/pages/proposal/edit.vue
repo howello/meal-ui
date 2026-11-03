@@ -6,6 +6,7 @@ import { submitProposal } from "@/api/proposal";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import type { Category } from "@/types";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
+import { consumeProposalPrefillName } from "@/utils/proposalPrefill";
 
 const categories = ref<Category[]>([]);
 const selectedCategoryIds = ref<number[]>([]);
@@ -16,9 +17,10 @@ const remark = ref("");
 const submitting = ref(false);
 useOrderNotifierLifecycle();
 
-onLoad(async (options) => {
-  const prefillName = options?.name;
-  if (typeof prefillName === "string") {
+onLoad(async () => {
+  // 从点餐区搜索无结果跳转而来时，菜名通过一次性本地存储传递，避免中文经 URL 双重编码成乱码
+  const prefillName = consumeProposalPrefillName();
+  if (prefillName) {
     name.value = prefillName;
   }
   try {

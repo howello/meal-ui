@@ -19,6 +19,7 @@ import {
   removeSearchHistory,
 } from "@/utils/searchHistory";
 import { collectMenuDishes, matchDishesByName, orderMenuDishesByIds, rankSuggestions } from "@/utils/dishSearch";
+import { saveProposalPrefillName } from "@/utils/proposalPrefill";
 import type { Category, Dish } from "@/types";
 
 /** 点餐区前端临时分组：最近上新 / 招牌，均不落库 */
@@ -818,8 +819,10 @@ function submitSearchAsProposal() {
   if (!query) {
     return;
   }
+  // 中文菜名不走 URL query：各端解码次数不一致会把菜名显示成 %XX 乱码
+  saveProposalPrefillName(query);
   closeSearchPanel();
-  uni.navigateTo({ url: `/pages/proposal/edit?name=${encodeURIComponent(query)}` });
+  uni.navigateTo({ url: "/pages/proposal/edit" });
 }
 
 /* ============ 左右联动（用 getBoundingClientRect 计算，不用 offsetTop/scrollIntoView） ============ */
@@ -1017,8 +1020,6 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
               v-model="keyword"
               custom-class="search__wd"
               no-border
-              clearable
-              clear-trigger="always"
               :maxlength="128"
               placeholder="搜索菜名 / 食材"
               placeholder-class="search__ph"
@@ -1027,8 +1028,14 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
               @focus="onSearchFocus"
               @blur="onSearchBlur"
               @confirm="onSearch"
-              @clear="onSearchClear"
-            />
+            >
+              <!-- 清空按钮自己画：组件自带的 error-fill 是填充圆点，在玻璃搜索框上像一块灰底 -->
+              <template #suffix>
+                <view v-if="keyword" class="search__clear" @click.stop="onSearchClear">
+                  <text class="search__clear-ic">×</text>
+                </view>
+              </template>
+            </wd-input>
           </view>
           <text class="search__btn" @click.stop="onSearch">
             <image class="search__btn-ic" :src="searchIcon" />
@@ -1297,9 +1304,22 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
   color: $lg-ink;
 }
 
-.search__field :deep(.wd-input__clear) {
+/* 清空按钮：透明底 + 纯色 ×，不用组件自带带底色的 error-fill 图标 */
+.search__clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40rpx;
+  height: 40rpx;
+  margin-left: 8rpx;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.search__clear-ic {
   color: $lg-ink-3;
-  font-size: 32rpx;
+  font-size: 34rpx;
+  line-height: 1;
 }
 
 .search__field :deep(.search__ph) {
