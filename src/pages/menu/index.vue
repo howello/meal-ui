@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onReady, onShow, onHide, onUnload } from "@dcloudio/uni-app";
 import { computed, getCurrentInstance, nextTick, ref } from "vue";
-import { listCategory, listDish, listSignatureDishes } from "@/api/dish";
+import { listCategory, listDish, listSignatureDishes, searchDish } from "@/api/dish";
 import CachedImage from "@/components/CachedImage.vue";
 import GlassNavBar from "@/components/GlassNavBar.vue";
 import KitchenMessageButton from "@/components/KitchenMessageButton.vue";
@@ -12,10 +12,19 @@ import { svgIcon } from "@/utils/icons";
 import { preloadImages } from "@/utils/imageCache";
 import { consumeMenuCache, consumeMenuDirty, getMenuCache, type MenuSnapshot } from "@/utils/menuCache";
 import { useOrderNotifierLifecycle } from "@/utils/notify";
+import {
+  addSearchHistory,
+  clearSearchHistory,
+  readSearchHistory,
+  removeSearchHistory,
+} from "@/utils/searchHistory";
+import { collectMenuDishes, matchDishesByName, orderMenuDishesByIds, rankSuggestions } from "@/utils/dishSearch";
 import type { Category, Dish } from "@/types";
 
 /** 点餐区前端临时分组：最近上新 / 招牌，均不落库 */
 type SpecialGroupKey = "recent" | "signature";
+type SearchPanelMode = "history" | "suggestions" | "loading" | "candidates" | "empty" | "error";
+type SearchCandidateSource = "local" | "ai";
 
 /** 右侧菜品流与左侧分类栏共用的分组结构 */
 interface MenuGroup {
@@ -40,6 +49,16 @@ const dishes = ref<Dish[]>([]);
 const signatures = ref<Dish[]>([]);
 const activeCategoryId = ref<number | SpecialGroupKey | undefined>(undefined);
 const keyword = ref("");
+const searchPanelOpen = ref(false);
+const searchPanelMode = ref<SearchPanelMode>("history");
+const searchHistory = ref<string[]>([]);
+const searchSuggestions = ref<Dish[]>([]);
+const searchCandidates = ref<Dish[]>([]);
+const searchCandidateQuery = ref("");
+const searchCandidateSource = ref<SearchCandidateSource>("local");
+const selectedSearchDishId = ref<number | null>(null);
+const activeSearchQuery = ref("");
+const searchError = ref("");
 const loading = ref(false);
 const menuError = ref("");
 let menuLoadVersion = 0;
@@ -63,6 +82,8 @@ let measureVersion = 0;
 let categoryPickVersion = 0;
 let categoryPickInFlight = false;
 let categoryPickTimer: ReturnType<typeof setTimeout> | null = null;
+let searchRequestVersion = 0;
+let searchBlurTimer: ReturnType<typeof setTimeout> | null = null;
 /** 搜索定位目标：菜品 ID 与当前搜索关键词，用于模板标记与滚动校准 */
 const searchTargetId = ref<number | null>(null);
 const searchTargetGroupKey = ref("");
@@ -80,6 +101,7 @@ const cancelFrame: (id: number) => void =
   typeof cancelAnimationFrame === "function" ? (id) => cancelAnimationFrame(id) : (id) => clearTimeout(id);
 
 const cartIcon = svgIcon("cart", "#FFFFFF");
+const searchIcon = svgIcon("search", "#ff6b35");
 
 onReady(async () => {
   await nextTick();
@@ -107,12 +129,14 @@ onShow(async () => {
   }
   const owner = `${userStore.user?.userId}:${userStore.user?.deptId}`;
   if (renderedOwner && renderedOwner !== owner) {
+    resetSearchInteraction(true);
     categories.value = [];
     dishes.value = [];
     signatures.value = [];
     menuLoadVersion += 1;
   }
   renderedOwner = owner;
+  searchHistory.value = readSearchHistory(userStore.user?.userId, userStore.user?.deptId);
   // 编辑/删除后清空进程内菜单快照，确保从详情或编辑页返回时一定重拉
   if (consumeMenuDirty()) {
     getMenuCache().clear();
@@ -131,10 +155,14 @@ onShow(async () => {
 
 onHide(() => {
   resetPickState();
+  searchRequestVersion += 1;
+  closeSearchPanel();
 });
 
 onUnload(() => {
   resetPickState();
+  searchRequestVersion += 1;
+  closeSearchPanel();
 });
 
 /* ============ 菜单缓存：进程内共享，页面切换不重复拉取；App 重开后重新请求 ============ */
@@ -163,7 +191,7 @@ async function refreshAll(showSkeleton = false) {
     };
     applyMenuSnapshot(snapshot);
     getMenuCache().set(snapshot);
-    keyword.value = "";
+    resetSearchInteraction(true);
     activeCategoryId.value = undefined;
     scrollTo.value = 0;
     scrolledTop = 0;
@@ -283,55 +311,316 @@ function groupTarget(g: MenuGroup): number | SpecialGroupKey {
   return g.categoryId ?? (g.key as SpecialGroupKey);
 }
 
+/** 根据当前菜单分组取菜品标识，用于搜索历史、建议和候选行的小图标。 */
+function dishIcon(dish: Dish): string {
+  return groups.value.find((group) => group.items.some((item) => String(item.dishId) === String(dish.dishId)))?.icon || "🍽️";
+}
+
 /* 没有菜品时的空态 */
 const emptyText = computed(() =>
   loading.value ? "" : menuError.value || "还没有菜，去管理端点几道吧",
 );
 
-/**
- * 在当前已加载的全量菜品中搜索并定位
- *
- * 搜索不改动列表数据、分组或推荐位，只在右侧菜品流中滚到第一个命中的菜品，
- * 命中范围与后端 keyword 规则一致：菜名或食材包含关键词（忽略大小写）。
- */
-async function onSearch() {
-  const query = keyword.value.trim();
+/** 返回分类顺序中的唯一菜品序列，跳过最近/招牌推荐位的重复卡片。 */
+function getMenuDishesInCategoryOrder(): Dish[] {
+  return collectMenuDishes(groups.value);
+}
+
+/** 菜名包含匹配；食材字段不参与搜索建议或本地优先搜索。 */
+function findLocalDishMatches(query: string): Dish[] {
+  return matchDishesByName(getMenuDishesInCategoryOrder(), query);
+}
+
+/** 输入建议将完全匹配和前缀匹配排前，并限制下拉高度。 */
+function findSearchSuggestions(query: string): Dish[] {
+  return rankSuggestions(findLocalDishMatches(query), query);
+}
+
+/** 清除输入框对应的搜索命中高亮并让旧的异步定位失效。 */
+function clearSearchHighlight() {
+  searchPickVersion += 1;
+  searchTargetId.value = null;
+  searchTargetGroupKey.value = "";
+  searchTargetKeyword.value = "";
+  selectedSearchDishId.value = null;
+}
+
+/** 清除与旧查询绑定的候选列表、来源和错误状态。 */
+function clearSearchCandidates() {
+  searchCandidates.value = [];
+  searchCandidateQuery.value = "";
+  searchCandidateSource.value = "local";
+  selectedSearchDishId.value = null;
+  searchError.value = "";
+}
+
+/** 收起搜索下拉但保留同一查询的候选缓存，重新聚焦时可恢复。 */
+function closeSearchPanel() {
+  searchPanelOpen.value = false;
+  if (searchBlurTimer !== null) {
+    clearTimeout(searchBlurTimer);
+    searchBlurTimer = null;
+  }
+}
+
+/** 打开历史、建议、候选或提示面板。 */
+function openSearchPanel(mode: SearchPanelMode) {
+  searchPanelMode.value = mode;
+  searchPanelOpen.value = true;
+}
+
+/** 重置当前搜索交互；菜单切换家庭或刷新时可同时清空输入。 */
+function resetSearchInteraction(clearKeyword: boolean) {
+  searchRequestVersion += 1;
+  activeSearchQuery.value = "";
+  searchSuggestions.value = [];
+  clearSearchCandidates();
+  clearSearchHighlight();
+  searchPanelMode.value = "history";
+  closeSearchPanel();
+  if (clearKeyword) {
+    keyword.value = "";
+  }
+}
+
+/** 输入内容变化后清理旧候选，再实时展示本地菜名建议。 */
+function onSearchInput(event?: Event) {
+  // 原生 input 把值放在 detail.value，wd-input 直接透传 detail；两种形状都要兼容。
+  const payload = event as unknown as { detail?: { value?: string }; value?: string } | undefined;
+  const detailValue = payload?.detail?.value ?? payload?.value;
+  const value = typeof detailValue === "string" ? detailValue : keyword.value;
+  keyword.value = value;
+  searchRequestVersion += 1;
+  activeSearchQuery.value = "";
+  clearSearchCandidates();
+  clearSearchHighlight();
+  const query = value.trim();
   if (!query) {
-    searchTargetId.value = null;
-    searchTargetGroupKey.value = "";
-    searchTargetKeyword.value = "";
+    searchSuggestions.value = [];
+    openSearchPanel("history");
     return;
   }
-  const lower = query.toLowerCase();
-  const matches = (text?: string): boolean => (text || "").toLowerCase().includes(lower);
-  let target: { group: MenuGroup; groupIndex: number; dish: Dish } | null = null;
-  // 推荐位与分类分组会重复出现同一道菜，优先定位「最近 / 招牌」之外的原始分类，
-  // 避免搜索命中后用户看到的是同一道菜在推荐位里的副本。
+  searchSuggestions.value = findSearchSuggestions(query);
+  openSearchPanel("suggestions");
+}
+
+/** 点击输入框自带清空控件：清空查询并清理候选、候选选中态与菜品高亮。 */
+function onSearchClear() {
+  // 清空控件会先触发一次失焦；这里取消延迟收起，避免刚显示的历史面板被立刻关掉。
+  if (searchBlurTimer !== null) {
+    clearTimeout(searchBlurTimer);
+    searchBlurTimer = null;
+  }
+  keyword.value = "";
+  searchRequestVersion += 1;
+  activeSearchQuery.value = "";
+  searchSuggestions.value = [];
+  clearSearchCandidates();
+  clearSearchHighlight();
+  openSearchPanel("history");
+}
+
+/** 聚焦时恢复同一查询的 AI/本地多结果候选，否则显示历史或本地建议。 */
+function onSearchFocus() {
+  if (searchBlurTimer !== null) {
+    clearTimeout(searchBlurTimer);
+    searchBlurTimer = null;
+  }
+  const query = keyword.value.trim();
+  if (!query) {
+    openSearchPanel("history");
+    return;
+  }
+  if (searchCandidateQuery.value === query && searchCandidates.value.length > 1) {
+    openSearchPanel("candidates");
+    return;
+  }
+  if (searchPanelMode.value === "loading" && activeSearchQuery.value === query) {
+    searchPanelOpen.value = true;
+    return;
+  }
+  searchSuggestions.value = findSearchSuggestions(query);
+  openSearchPanel("suggestions");
+}
+
+/** 轻微延迟失焦收起，保证 H5/App 点击下拉候选时 tap 事件先完成。 */
+function onSearchBlur() {
+  if (searchBlurTimer !== null) {
+    clearTimeout(searchBlurTimer);
+  }
+  searchBlurTimer = setTimeout(() => {
+    searchPanelOpen.value = false;
+    searchBlurTimer = null;
+  }, 180);
+}
+
+/** 点击搜索框以外的页面区域时收起面板，候选缓存仍保留。 */
+function onMenuPageTap() {
+  if (searchPanelOpen.value) {
+    closeSearchPanel();
+  }
+}
+
+/** 从本地结果或 AI 返回的菜品中找到当前菜单中的唯一分类卡片。 */
+function findDishLocation(dishId: number): { group: MenuGroup; groupIndex: number; dish: Dish } | null {
   const indexedGroups = groups.value.map((group, groupIndex) => ({ group, groupIndex }));
   const orderedGroups = [
     ...indexedGroups.filter(({ group }) => group.key !== "recent" && group.key !== "signature"),
     ...indexedGroups.filter(({ group }) => group.key === "recent" || group.key === "signature"),
   ];
   for (const { group, groupIndex } of orderedGroups) {
-    const dish = group.items.find((item) => matches(item.name) || matches(item.ingredients));
+    const dish = group.items.find((item) => String(item.dishId) === String(dishId));
     if (dish) {
-      target = { group, groupIndex, dish };
-      break;
+      return { group, groupIndex, dish };
     }
   }
+  return null;
+}
+
+/** 定位并高亮一个候选；多结果点选后保留下拉缓存，只收起面板。 */
+async function locateSearchDish(dish: Dish, query: string) {
+  const target = findDishLocation(dish.dishId);
   if (!target) {
-    searchTargetId.value = null;
-    searchTargetGroupKey.value = "";
-    searchTargetKeyword.value = query;
-    uni.showToast({ title: "没有找到相关菜品", icon: "none" });
-    return;
+    uni.showToast({ title: "菜品列表已更新，请下拉刷新后重试", icon: "none" });
+    return false;
   }
   searchTargetId.value = target.dish.dishId;
   searchTargetGroupKey.value = target.group.key;
   searchTargetKeyword.value = query;
+  selectedSearchDishId.value = target.dish.dishId;
   activeCategoryId.value = groupTarget(target.group);
   syncRail(target.groupIndex);
   await scrollToDish(target.dish.dishId, target.group.key, target.groupIndex);
+  return true;
+}
+
+/** 写入本次主动搜索历史，并同步当前用户/家庭对应的本地列表。 */
+function rememberSearch(query: string) {
+  searchHistory.value = addSearchHistory(userStore.user?.userId, userStore.user?.deptId, query);
+}
+
+/** 将服务端返回项映射回当前菜单快照并按分类展示顺序去重。 */
+function mapResultsToMenu(items: Dish[]): Dish[] {
+  return orderMenuDishesByIds(getMenuDishesInCategoryOrder(), items);
+}
+
+/** 保存当前查询的多结果候选，选中后也保留列表和选中态。 */
+function showSearchCandidates(items: Dish[], source: SearchCandidateSource, query: string) {
+  searchCandidates.value = items;
+  searchCandidateQuery.value = query;
+  searchCandidateSource.value = source;
+  searchError.value = "";
+  openSearchPanel("candidates");
+}
+
+/** 单结果直接定位，多结果在下拉框点选；只有两者均无匹配时才请求 AI。 */
+async function onSearch() {
+  const query = keyword.value.trim();
+  if (!query) {
+    openSearchPanel("history");
+    return;
+  }
+  // 同一查询的 AI 请求进行中时忽略重复点击，保证一次搜索只对应一个请求生命周期。
+  if (searchPanelMode.value === "loading" && activeSearchQuery.value === query) {
+    openSearchPanel("loading");
+    return;
+  }
+  if (searchBlurTimer !== null) {
+    clearTimeout(searchBlurTimer);
+    searchBlurTimer = null;
+  }
+  rememberSearch(query);
+
+  if (searchCandidateQuery.value === query && searchCandidates.value.length > 1) {
+    openSearchPanel("candidates");
+    return;
+  }
+
+  clearSearchCandidates();
+  clearSearchHighlight();
+  const localMatches = findLocalDishMatches(query);
+  if (localMatches.length === 1) {
+    searchPanelOpen.value = false;
+    searchSuggestions.value = [];
+    await locateSearchDish(localMatches[0], query);
+    return;
+  }
+  if (localMatches.length > 1) {
+    showSearchCandidates(localMatches, "local", query);
+    return;
+  }
+
+  const requestVersion = ++searchRequestVersion;
+  const sessionVersion = userStore.sessionVersion;
+  activeSearchQuery.value = query;
+  searchError.value = "";
+  openSearchPanel("loading");
+  try {
+    const response = await searchDish(query);
+    if (
+      requestVersion !== searchRequestVersion ||
+      sessionVersion !== userStore.sessionVersion ||
+      query !== keyword.value.trim()
+    ) {
+      return;
+    }
+    activeSearchQuery.value = "";
+    const matches = mapResultsToMenu(response?.items || []);
+    if (!matches.length) {
+      if (response?.items?.length) {
+        searchError.value = "菜单刚有更新，请下拉刷新后再试";
+        openSearchPanel("error");
+      } else {
+        openSearchPanel("empty");
+      }
+      return;
+    }
+    if (matches.length === 1) {
+      searchPanelOpen.value = false;
+      await locateSearchDish(matches[0], query);
+      return;
+    }
+    showSearchCandidates(matches, response.source === "ai" ? "ai" : "local", query);
+  } catch (error) {
+    if (requestVersion !== searchRequestVersion || query !== keyword.value.trim()) {
+      return;
+    }
+    activeSearchQuery.value = "";
+    searchError.value = "AI 搜索暂不可用，请稍后重试";
+    openSearchPanel("error");
+  }
+}
+
+/** 选择历史词后按同一本地优先流程搜索。 */
+function selectSearchHistory(query: string) {
+  keyword.value = query;
+  void onSearch();
+}
+
+/** 删除一条本地搜索历史。 */
+function deleteSearchHistory(query: string) {
+  searchHistory.value = removeSearchHistory(userStore.user?.userId, userStore.user?.deptId, query);
+}
+
+/** 清空当前登录用户与家庭的全部搜索历史。 */
+function deleteAllSearchHistory() {
+  clearSearchHistory(userStore.user?.userId, userStore.user?.deptId);
+  searchHistory.value = [];
+}
+
+/** 点击实时菜名建议后回填菜名并自动执行本地优先搜索。 */
+function selectSearchSuggestion(dish: Dish) {
+  keyword.value = dish.name;
+  void onSearch();
+}
+
+/** 选择多结果候选后定位并高亮，随后收起下拉但保留候选列表。 */
+async function selectSearchCandidate(dish: Dish) {
+  const query = searchCandidateQuery.value || keyword.value.trim();
+  const located = await locateSearchDish(dish, query);
+  if (located) {
+    closeSearchPanel();
+  }
 }
 
 /**
@@ -523,6 +812,16 @@ function goCart() {
   uni.navigateTo({ url: "/pages/cart/index" });
 }
 
+/** 把当前无匹配查询带入提交新菜页面，不自动提交提案。 */
+function submitSearchAsProposal() {
+  const query = keyword.value.trim();
+  if (!query) {
+    return;
+  }
+  closeSearchPanel();
+  uni.navigateTo({ url: `/pages/proposal/edit?name=${encodeURIComponent(query)}` });
+}
+
 /* ============ 左右联动（用 getBoundingClientRect 计算，不用 offsetTop/scrollIntoView） ============ */
 /** 点击分类后的滚动锁定时长（ms）：覆盖 H5 的 300ms 平滑动画，期间不让滚动事件反改高亮 */
 const PICK_SETTLE_MS = 400;
@@ -703,24 +1002,133 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
 </script>
 
 <template>
-  <view class="app-fixed app-fixed--topnav" :class="themeRootClass">
+  <view class="app-fixed app-fixed--topnav" :class="themeRootClass" @tap="onMenuPageTap">
     <GlassNavBar title="今天吃什么" hide-back>
       <template #right>
         <KitchenMessageButton />
       </template>
     </GlassNavBar>
 
-    <view class="app-fixed__head">
-      <view class="search glass">
-        <input
-          v-model="keyword"
-          class="search__input"
-          placeholder="搜索菜名 / 食材"
-          placeholder-class="search__ph"
-          confirm-type="search"
-          @confirm="onSearch"
-        />
-        <text class="search__btn" @click="onSearch">搜索</text>
+    <view class="app-fixed__head search-head">
+      <view class="search-area" @tap.stop>
+        <view class="search glass">
+          <view class="search__field">
+            <wd-input
+              v-model="keyword"
+              custom-class="search__wd"
+              no-border
+              clearable
+              clear-trigger="always"
+              :maxlength="128"
+              placeholder="搜索菜名 / 食材"
+              placeholder-class="search__ph"
+              confirm-type="search"
+              @input="onSearchInput"
+              @focus="onSearchFocus"
+              @blur="onSearchBlur"
+              @confirm="onSearch"
+              @clear="onSearchClear"
+            />
+          </view>
+          <text class="search__btn" @click.stop="onSearch">
+            <image class="search__btn-ic" :src="searchIcon" />
+            <text class="search__btn-text">搜索</text>
+          </text>
+        </view>
+
+        <view v-if="searchPanelOpen" class="search-dropdown glass glass--strong" @tap.stop>
+          <template v-if="searchPanelMode === 'history'">
+            <view class="search-panel__head">
+              <text class="search-panel__title"><text class="search-panel__title-ic">◷</text>最近搜索</text>
+              <text v-if="searchHistory.length" class="search-panel__action" @click.stop="deleteAllSearchHistory">清空历史</text>
+            </view>
+            <view v-if="searchHistory.length" class="search-history-list">
+              <view v-for="item in searchHistory" :key="item" class="search-history-row">
+                <view class="search-history-row__main" @click.stop="selectSearchHistory(item)">
+                  <text class="search-history-row__ic">◷</text>
+                  <text class="search-history-row__text">{{ item }}</text>
+                </view>
+                <text class="search-history-row__remove" @click.stop="deleteSearchHistory(item)">×</text>
+              </view>
+            </view>
+            <view v-else class="search-panel__empty">还没有搜索记录，输入菜名开始找</view>
+          </template>
+
+          <template v-else-if="searchPanelMode === 'suggestions'">
+            <view class="search-panel__head">
+              <text class="search-panel__title"><text class="search-panel__title-ic">✦</text>菜名匹配</text>
+              <text class="search-panel__meta">本地实时</text>
+            </view>
+            <view v-if="searchSuggestions.length" class="search-suggestion-list">
+              <view
+                v-for="dish in searchSuggestions"
+                :key="dish.dishId"
+                class="search-suggestion"
+                @click.stop="selectSearchSuggestion(dish)"
+              >
+                <text class="search-suggestion__icon">{{ dishIcon(dish) }}</text>
+                <view class="search-suggestion__body">
+                  <text class="search-suggestion__name">{{ dish.name }}</text>
+                  <text class="search-suggestion__meta">{{ dish.categoryNames || "菜单菜品" }}</text>
+                </view>
+                <text class="search-suggestion__arrow">›</text>
+              </view>
+            </view>
+            <view v-else class="search-panel__empty">本地没有匹配菜名，点击「搜索」让 AI 帮你找</view>
+          </template>
+
+          <template v-else-if="searchPanelMode === 'loading'">
+            <view class="search-panel__loading">
+              <view class="search-panel__spinner"></view>
+              <text>正在从家里的菜单中理解并匹配…</text>
+            </view>
+          </template>
+
+          <template v-else-if="searchPanelMode === 'candidates'">
+            <view class="search-panel__head">
+              <text class="search-panel__title">{{ searchCandidateSource === "ai" ? "AI 为你找到" : "菜单中找到" }} {{ searchCandidates.length }} 道菜</text>
+              <text class="search-panel__meta">点选定位</text>
+            </view>
+            <view class="search-candidate-list">
+              <view
+                v-for="dish in searchCandidates"
+                :key="dish.dishId"
+                class="search-candidate"
+                :class="{ 'search-candidate--selected': String(selectedSearchDishId) === String(dish.dishId) }"
+                @click.stop="selectSearchCandidate(dish)"
+              >
+                <text class="search-candidate__icon">{{ dishIcon(dish) }}</text>
+                <view class="search-candidate__body">
+                  <text class="search-candidate__name">{{ dish.name }}</text>
+                  <text class="search-candidate__meta">{{ dish.categoryNames || "菜单菜品" }}</text>
+                </view>
+                <text class="search-candidate__selected" v-if="String(selectedSearchDishId) === String(dish.dishId)">已选</text>
+                <text class="search-candidate__arrow" v-else>定位 ›</text>
+              </view>
+            </view>
+            <text class="search-panel__hint">选中后下拉收起；查询不变时再次聚焦可恢复候选</text>
+          </template>
+
+          <template v-else-if="searchPanelMode === 'empty'">
+            <view class="search-panel__empty search-panel__empty--result">
+              <text class="search-panel__empty-icon">🍽️</text>
+              <text>没有找到「{{ keyword.trim() }}」</text>
+            </view>
+            <view class="search-new-dish" @click.stop="submitSearchAsProposal">
+              <text class="search-new-dish__plus">＋</text>
+              <view class="search-new-dish__body">
+                <text class="search-new-dish__title">未搜索到菜品，新增？</text>
+                <text class="search-new-dish__desc">带上菜名去提交新菜</text>
+              </view>
+              <text class="search-new-dish__arrow">›</text>
+            </view>
+          </template>
+
+          <template v-else-if="searchPanelMode === 'error'">
+            <view class="search-panel__error">{{ searchError || "搜索暂不可用，请稍后重试" }}</view>
+            <text class="search-panel__retry" @click.stop="onSearch">重新搜索</text>
+          </template>
+        </view>
       </view>
     </view>
 
@@ -842,6 +1250,18 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
 </template>
 
 <style lang="scss" scoped>
+/* 固定头部层级高于菜品流，保证搜索下拉始终浮在列表上方。 */
+.search-head {
+  position: relative;
+  z-index: 30;
+}
+
+.search-area {
+  position: relative;
+  z-index: 31;
+  margin-bottom: 20rpx;
+}
+
 /* 搜索框：玻璃胶囊底由 .glass 提供，这里只负责布局 */
 .search {
   display: flex;
@@ -849,13 +1269,41 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
   gap: 16rpx;
   border-radius: 999rpx;
   padding: 16rpx 12rpx 16rpx 28rpx;
-  margin-bottom: 20rpx;
+  margin-bottom: 0;
 }
 
-.search__input {
+/* wd-input 默认带白底与下边框；搜索框本身已是玻璃胶囊，这里全部去掉。
+   wd-input 配了 virtualHost，根节点就是 .wd-input，custom-class 会叠加到它上面。 */
+.search__field {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.search__field :deep(.search__wd) {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+}
+
+.search__field :deep(.search__wd::after) {
+  display: none;
+}
+
+.search__field :deep(.wd-input__inner) {
+  height: 56rpx;
   font-size: 26rpx;
   color: $lg-ink;
+}
+
+.search__field :deep(.wd-input__clear) {
+  color: $lg-ink-3;
+  font-size: 32rpx;
+}
+
+.search__field :deep(.search__ph) {
+  color: $lg-ink-3;
 }
 
 .search__ph {
@@ -863,12 +1311,291 @@ async function pickCategory(categoryKey: number | SpecialGroupKey) {
 }
 
 .search__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  flex: 0 0 auto;
   font-size: 26rpx;
   color: $lg-accent;
   font-weight: 700;
-  padding: 12rpx 28rpx;
+  padding: 12rpx 26rpx;
   border-radius: 999rpx;
   background: $lg-accent-soft;
+}
+
+/* 小号搜索图标：视觉上明显小于按钮文字，且不遮挡「搜索」二字 */
+.search__btn-ic {
+  width: 26rpx;
+  height: 26rpx;
+  opacity: 0.9;
+}
+
+.search__btn-text {
+  line-height: 1;
+}
+
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 12rpx);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  max-height: min(640rpx, 58vh);
+  overflow-y: auto;
+  padding: 12rpx;
+  border-radius: 28rpx;
+}
+
+.search-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 8rpx 10rpx 14rpx;
+}
+
+.search-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  color: $lg-ink-2;
+  font-size: 23rpx;
+  font-weight: 700;
+}
+
+.search-panel__title-ic {
+  color: $lg-accent;
+  font-size: 24rpx;
+}
+
+.search-panel__action,
+.search-panel__meta {
+  color: $lg-ink-3;
+  font-size: 21rpx;
+}
+
+.search-panel__action {
+  padding: 6rpx 10rpx;
+  border-radius: 999rpx;
+}
+
+.search-panel__empty {
+  padding: 28rpx 18rpx;
+  color: $lg-ink-3;
+  font-size: 23rpx;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.search-panel__empty--result {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+}
+
+.search-panel__empty-icon {
+  font-size: 30rpx;
+}
+
+.search-panel__loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14rpx;
+  padding: 34rpx 18rpx;
+  color: $lg-ink-2;
+  font-size: 23rpx;
+}
+
+.search-panel__spinner {
+  width: 52rpx;
+  height: 52rpx;
+  border: 4rpx solid $lg-accent-soft;
+  border-top-color: $lg-accent;
+  border-radius: 50%;
+  animation: search-spin 0.8s linear infinite;
+}
+
+@keyframes search-spin {
+  to { transform: rotate(360deg); }
+}
+
+.search-history-list,
+.search-suggestion-list,
+.search-candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.search-history-row,
+.search-suggestion,
+.search-candidate {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  min-height: 76rpx;
+  padding: 12rpx 14rpx;
+  border-radius: 18rpx;
+}
+
+.search-history-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.search-history-row__ic {
+  color: $lg-ink-3;
+  font-size: 23rpx;
+}
+
+.search-history-row__text,
+.search-suggestion__name,
+.search-candidate__name {
+  overflow: hidden;
+  color: $lg-ink;
+  font-size: 24rpx;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-history-row__remove {
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 46rpx;
+  border-radius: 50%;
+  color: $lg-ink-3;
+  font-size: 30rpx;
+  text-align: center;
+}
+
+.search-suggestion,
+.search-candidate {
+  border: 1rpx solid transparent;
+}
+
+.search-suggestion__icon,
+.search-candidate__icon {
+  flex: 0 0 54rpx;
+  width: 54rpx;
+  height: 54rpx;
+  line-height: 54rpx;
+  border-radius: 16rpx;
+  color: $lg-accent;
+  background: $lg-accent-soft;
+  font-size: 27rpx;
+  text-align: center;
+}
+
+.search-suggestion__body,
+.search-candidate__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5rpx;
+}
+
+.search-suggestion__meta,
+.search-candidate__meta {
+  overflow: hidden;
+  color: $lg-ink-3;
+  font-size: 20rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-suggestion__arrow,
+.search-candidate__arrow {
+  color: $lg-ink-3;
+  font-size: 29rpx;
+}
+
+.search-candidate--selected {
+  border-color: $lg-accent-border;
+  background: $lg-accent-soft;
+}
+
+.search-candidate__selected {
+  color: $lg-accent;
+  font-size: 20rpx;
+  font-weight: 700;
+}
+
+.search-panel__hint {
+  display: block;
+  padding: 10rpx 12rpx 2rpx;
+  color: $lg-ink-3;
+  font-size: 19rpx;
+  line-height: 1.5;
+}
+
+.search-panel__error {
+  padding: 22rpx 16rpx 12rpx;
+  color: $lg-danger;
+  font-size: 23rpx;
+  text-align: center;
+}
+
+.search-panel__retry {
+  display: block;
+  padding: 12rpx;
+  color: $lg-accent;
+  font-size: 22rpx;
+  font-weight: 700;
+  text-align: center;
+}
+
+.search-new-dish {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin: 4rpx 6rpx 8rpx;
+  padding: 16rpx;
+  border: 1rpx dashed $lg-accent-border;
+  border-radius: 22rpx;
+  background: $lg-accent-soft;
+}
+
+.search-new-dish__plus {
+  flex: 0 0 54rpx;
+  width: 54rpx;
+  height: 54rpx;
+  line-height: 51rpx;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  font-size: 36rpx;
+  text-align: center;
+}
+
+.search-new-dish__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.search-new-dish__title {
+  color: $lg-accent;
+  font-size: 23rpx;
+  font-weight: 700;
+}
+
+.search-new-dish__desc {
+  color: $lg-ink-3;
+  font-size: 19rpx;
+}
+
+.search-new-dish__arrow {
+  color: $lg-accent;
+  font-size: 32rpx;
 }
 
 /* 主体：左右两栏撑满剩余高度 */

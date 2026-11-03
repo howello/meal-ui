@@ -11,6 +11,7 @@ const ICON_PATHS: Record<string, string> = {
   pan: '<circle cx="10" cy="13" r="6.5"/><path d="M16.5 13H22"/><path d="M8 3.5c1.5 1 1.5 2 0 3M12 3c1.5 1 1.5 2 0 3"/>',
   fire: '<path d="M12 22c4 0 6.5-2.7 6.5-6 0-4.5-4-6.5-4-10 0 0-2.5 1.5-2.5 4.5C12 8 9.5 6.5 9.5 4 7 6 5.5 8.7 5.5 12c0 4.5 2.5 10 6.5 10z"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
   message:
     '<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 9h8M8 13h5"/>',
   edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',

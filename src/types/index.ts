@@ -52,6 +52,13 @@ export interface Dish {
   count?: number;
 }
 
+/** 菜品搜索结果（AI 搜索返回的候选仍需映射到当前菜单快照后才能定位）。 */
+export interface DishSearchResult {
+  query: string;
+  source: "local" | "ai";
+  items: Dish[];
+}
+
 /** 订单明细（菜品快照） */
 export interface OrderItem {
   itemId?: number;

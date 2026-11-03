@@ -16,7 +16,11 @@ const remark = ref("");
 const submitting = ref(false);
 useOrderNotifierLifecycle();
 
-onLoad(async () => {
+onLoad(async (options) => {
+  const prefillName = options?.name;
+  if (typeof prefillName === "string") {
+    name.value = prefillName;
+  }
   try {
     const res = await listCategory();
     categories.value = res.rows;

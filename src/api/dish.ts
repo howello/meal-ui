@@ -1,4 +1,4 @@
-import type { Category, Dish } from "@/types";
+import type { Category, Dish, DishSearchResult } from "@/types";
 import { request, requestPage, requestVoid } from "@/utils/request";
 
 // 点餐端要一次拿到全量数据：左侧分类栏、右侧「按分类分组」都在前端完成。
@@ -20,6 +20,11 @@ export function listDish(params: { categoryId?: number; keyword?: string; status
     url: "/meal/dish/list",
     data: { pageSize: ALL_PAGE_SIZE, ...params, status: params.status ?? "0" },
   });
+}
+
+/** 对本地无匹配的菜名执行 AI 语义搜索，后端只返回当前家庭可见的真实菜品。 */
+export function searchDish(query: string) {
+  return request<DishSearchResult>({ url: "/meal/dish/search", data: { keyword: query } });
 }
 
 /** 菜品详情（含用料、做法与小贴士） */
