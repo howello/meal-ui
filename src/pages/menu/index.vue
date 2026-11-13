@@ -233,12 +233,11 @@ function warmUpCovers() {
 /** 下拉阈值（px），与模板 refresher-threshold 保持一致 */
 const REFRESHER_THRESHOLD = 80;
 
-/* 分类 icon：接口有就用，没有则按顺序给默认 icon（与参考 Demo 的 CATS 图标一致） */
-const DEFAULT_CATEGORY_ICONS = ["🔥", "🥗", "🍲", "🍚", "🍖", "🥦", "🍮", "🌶️"];
-
-function categoryIcon(cat: Category, index: number): string {
+/* 分类 icon：接口有就用，没有则统一显示默认餐具图标。
+   不按数组下标轮换：私有分类插入后下标会错位，导致图标与分类语义不符。 */
+function categoryIcon(cat: Category): string {
   const icon = (cat.icon || "").trim();
-  return icon || DEFAULT_CATEGORY_ICONS[index % DEFAULT_CATEGORY_ICONS.length];
+  return icon || "🍽️";
 }
 
 /** 最近上新窗口（自然日，含今天） */
@@ -286,7 +285,7 @@ const groups = computed<MenuGroup[]>(() => {
   if (signatures.value.length) {
     list.push({ key: "signature", label: "招牌", icon: "⭐", items: signatures.value });
   }
-  categories.value.forEach((cat, index) => {
+  categories.value.forEach((cat) => {
     const items = dishes.value.filter((d) => {
       // 优先按 categoryIds 归组；后端可能把 bigint 序列化成字符串，统一字符串化比较
       const ids = (d.categoryIds || []).map((id) => String(id));
@@ -296,11 +295,15 @@ const groups = computed<MenuGroup[]>(() => {
       // 退而按冗余 categoryNames 兜底，避免 categoryIds 缺失时整组被过滤成空
       return (d.categoryNames || "").trim() === (cat.name || "").trim();
     });
+    // 没有菜的分类不生成空分组：左栏与右侧必须一一对应，空组会让联动索引错位
+    if (!items.length) {
+      return;
+    }
     list.push({
       key: String(cat.categoryId),
       categoryId: cat.categoryId,
       label: cat.name,
-      icon: categoryIcon(cat, index),
+      icon: categoryIcon(cat),
       items,
     });
   });

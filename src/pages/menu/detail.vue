@@ -185,6 +185,11 @@ function addToCart() {
   if (!dish.value) {
     return;
   }
+  // 所属分类已停用：详情仍可查看历史内容，但不允许加购
+  if (dish.value.menuVisible === false) {
+    uni.showToast({ title: "该菜所属分类已停用，暂不可点", icon: "none" });
+    return;
+  }
   cartStore.add(dish.value, count.value, remark.value);
   uni.showToast({ title: "已加入购物车", icon: "none" });
   setTimeout(() => {
@@ -212,6 +217,7 @@ function addToCart() {
         </view>
         <view class="hero__mask">
           <text v-if="dish.categoryNames" class="hero__tag">{{ dish.categoryNames }}</text>
+          <text v-if="dish.menuVisible === false" class="hero__tag hero__tag--warn">分类已停用</text>
           <text class="hero__name">{{ dish.name }}</text>
           <text class="hero__desc">{{ dish.description || "" }}</text>
         </view>
@@ -274,7 +280,11 @@ function addToCart() {
           <text class="stepper__count">{{ count }}</text>
           <text class="stepper__btn stepper__btn--plus" @click="changeCount(1)">+</text>
         </view>
-        <view class="bottombar__btn" @click="addToCart">加入购物车</view>
+        <view
+          class="bottombar__btn"
+          :class="{ 'bottombar__btn--disabled': dish.menuVisible === false }"
+          @click="addToCart"
+        >{{ dish.menuVisible === false ? "分类已停用" : "加入购物车" }}</view>
       </view>
     </view>
 
@@ -359,6 +369,10 @@ function addToCart() {
   background-color: rgba(255, 255, 255, 0.25);
   color: #fff;
   margin-bottom: 12rpx;
+}
+
+.hero__tag--warn {
+  background-color: rgba(230, 126, 34, 0.75);
 }
 
 .hero__name {
@@ -528,5 +542,10 @@ function addToCart() {
   font-weight: 700;
   background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
   box-shadow: 0 20rpx 44rpx $lg-accent-shadow, inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.bottombar__btn--disabled {
+  background: rgba(0, 0, 0, 0.12);
+  box-shadow: none;
 }
 </style>

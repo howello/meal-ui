@@ -6,19 +6,24 @@ import { request, requestPage, requestVoid } from "@/utils/request";
 // 表现为「每个分类只显示一道菜」（分页按 sort 排序，前 10 条正好覆盖每个分类的首道菜）。
 const ALL_PAGE_SIZE = 1000;
 
-/** 分类列表（公共分类 + 本家庭私有分类），取全量 */
-export function listCategory(params?: { name?: string }) {
+/**
+ * 分类列表（公共分类 + 本家庭私有分类），只取启用分类并加载全量
+ *
+ * 停用分类由后端过滤后不返回，左栏与右侧分组都不会再出现它；
+ * 每页 1000 只是单页上限，调用方需要按 total 继续翻页，避免分类很多时被截断。
+ */
+export function listCategory(params?: { name?: string; pageNum?: number; pageSize?: number }) {
   return requestPage<Category>({
     url: "/meal/category/list",
-    data: { pageSize: ALL_PAGE_SIZE, ...params },
+    data: { status: "0", pageSize: ALL_PAGE_SIZE, ...params },
   });
 }
 
-/** 菜品列表，支持按分类与关键词筛选，取全量；默认只返回上架菜品 */
+/** 菜品列表，支持按分类与关键词筛选，取全量；默认只返回上架且菜单可见的菜品 */
 export function listDish(params: { categoryId?: number; keyword?: string; status?: string }) {
   return requestPage<Dish>({
     url: "/meal/dish/list",
-    data: { pageSize: ALL_PAGE_SIZE, ...params, status: params.status ?? "0" },
+    data: { pageSize: ALL_PAGE_SIZE, ...params, status: params.status ?? "0", menuVisible: true },
   });
 }
 
