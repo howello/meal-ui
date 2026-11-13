@@ -26,6 +26,12 @@ export interface Dish {
   categoryIds?: number[];
   /** 分类名称（唯一主类名） */
   categoryNames?: string;
+  /**
+   * 点餐端是否可展示/可加购
+   *
+   * 仅在详情接口返回：false 表示所属分类已停用，详情仍可查看但不可加购。
+   */
+  menuVisible?: boolean;
   name: string;
   cover?: string;
   description?: string;
