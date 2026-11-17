@@ -1,32 +1,40 @@
 <script setup lang="ts">
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onUnload } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
-import { getDish } from "@/api/dish";
-import { orderDetail } from "@/api/order";
+import { prepPlan, regeneratePrepPlan } from "@/api/order";
 import GlassNavBar from "@/components/GlassNavBar.vue";
-import type { Ingredient } from "@/types";
-
-/** 合并后某个食材的来源：哪道菜、该菜对它的用量 */
-interface PrepSource {
-  dishName: string;
-  amount: string;
-}
-
-/** 合并后的备菜条目：按食材名去重，来源可追溯 */
-interface PrepItem {
-  name: string;
-  sources: PrepSource[];
-}
+import type { PrepPlan, PrepPlanItem } from "@/types";
 
 const orderId = ref(0);
 const loading = ref(true);
-const items = ref<PrepItem[]>([]);
+/** 后端返回的 AI 清单；未加载完成前为 null */
+const plan = ref<PrepPlan | null>(null);
+/** 正在提交「重新生成」 */
+const regenerating = ref(false);
 /** 已买完的食材名集合 */
 const checked = ref<Set<string>>(new Set());
 
 /** 本地存储 key：按订单隔离，不同订单互不影响 */
 const storageKey = computed(() => `meal-prep-${orderId.value}`);
-const checkedCount = computed(() => items.value.filter((item) => checked.value.has(item.name)).length);
+
+/** 合并后的全部条目，用于进度统计与勾选 */
+const allItems = computed<PrepPlanItem[]>(() =>
+  (plan.value?.groups || []).flatMap((group) => group.items || []),
+);
+const checkedCount = computed(() => allItems.value.filter((item) => checked.value.has(item.name)).length);
+const totalCount = computed(() => allItems.value.length);
+
+const isGenerating = computed(() => plan.value?.status === "GENERATING");
+/** 已生成且有内容 */
+const isReady = computed(() => plan.value?.status === "READY" && totalCount.value > 0);
+/** 已生成但没有可用料：正常空态，不提供重新生成 */
+const isEmpty = computed(() => plan.value?.status === "READY" && totalCount.value === 0);
+/** 订单已结束：清单已清理，隐藏重新生成 */
+const isClosed = computed(() => plan.value?.status === "CLOSED");
+/** 生成失败或清单已过期：可重新生成 */
+const isFailed = computed(
+  () => !loading.value && !isGenerating.value && !isReady.value && !isEmpty.value && !isClosed.value,
+);
 
 onLoad(async (options) => {
   orderId.value = Number(options?.orderId || 0);
@@ -36,7 +44,7 @@ onLoad(async (options) => {
     return;
   }
   loadChecked();
-  await loadItems();
+  await loadPlan();
 });
 
 /** 读取本地已勾选的食材名（损坏则忽略，当作尚未勾选） */
@@ -63,61 +71,70 @@ function persistChecked() {
   uni.setStorageSync(storageKey.value, JSON.stringify([...checked.value]));
 }
 
-/** 拉取订单明细，逐菜取用料并按食材名合并；单道菜失败不影响其余 */
-async function loadItems() {
+/** 读取该订单的 AI 备菜清单 */
+async function loadPlan() {
   loading.value = true;
   try {
-    const order = await orderDetail(orderId.value);
-    const list = order.items || [];
-    const dishIngredients = await Promise.all(
-      list.map(async (item) => {
-        if (!item.dishId) {
-          return { dishName: item.dishName, ingredients: [] as Ingredient[] };
-        }
-        try {
-          const dish = await getDish(item.dishId);
-          return { dishName: item.dishName, ingredients: parseIngredients(dish.ingredients) };
-        } catch (e) {
-          return { dishName: item.dishName, ingredients: [] as Ingredient[] };
-        }
-      }),
-    );
-
-    const map = new Map<string, PrepItem>();
-    dishIngredients.forEach(({ dishName, ingredients }) => {
-      ingredients.forEach((ingredient) => {
-        const name = (ingredient.name || "").trim();
-        if (!name) {
-          return;
-        }
-        const merged = map.get(name) || { name, sources: [] };
-        merged.sources.push({ dishName, amount: (ingredient.amount || "").trim() });
-        map.set(name, merged);
-      });
-    });
-    items.value = [...map.values()];
+    plan.value = await prepPlan(orderId.value);
   } catch (e) {
-    items.value = [];
+    plan.value = null;
   } finally {
     loading.value = false;
   }
+  schedulePoll();
 }
 
-/** 解析菜品 ingredients 字段（JSON 字符串），失败或非数组返回空 */
-function parseIngredients(raw?: string): Ingredient[] {
-  if (!raw) {
-    return [];
+/** 生成中时每 3 秒自动刷新一次，生成完成或失败后停止 */
+const POLL_INTERVAL_MS = 3000;
+let pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** 根据当前状态安排下一次轮询；页面卸载时清理 */
+function schedulePoll() {
+  if (pollTimer) {
+    clearTimeout(pollTimer);
+    pollTimer = null;
   }
+  if (plan.value?.status !== "GENERATING") {
+    return;
+  }
+  pollTimer = setTimeout(async () => {
+    pollTimer = null;
+    await loadPlan();
+  }, POLL_INTERVAL_MS);
+}
+
+/** 页面卸载时清理轮询 */
+onUnload(() => {
+  if (pollTimer) {
+    clearTimeout(pollTimer);
+    pollTimer = null;
+  }
+});
+
+/** 生成中或失败时刷新当前状态 */
+async function refreshStatus() {
+  await loadPlan();
+}
+
+/** 重新触发后台生成 */
+async function regenerate() {
+  if (regenerating.value) {
+    return;
+  }
+  regenerating.value = true;
   try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    plan.value = await regeneratePrepPlan(orderId.value);
+    uni.showToast({ title: "已开始重新生成", icon: "none" });
+    schedulePoll();
   } catch (e) {
-    return [];
+    // 提示由请求层给出
+  } finally {
+    regenerating.value = false;
   }
 }
 
 /** 勾选/取消某食材的「已买完」并持久化 */
-function toggle(item: PrepItem) {
+function toggle(item: PrepPlanItem) {
   const next = new Set(checked.value);
   if (next.has(item.name)) {
     next.delete(item.name);
@@ -136,30 +153,64 @@ function toggle(item: PrepItem) {
     <view class="card head">
       <view class="row-between">
         <text class="head__title">备菜清单</text>
-        <text class="head__progress">已买 {{ checkedCount }} / 共 {{ items.length }}</text>
+        <text v-if="isReady" class="head__progress">已买 {{ checkedCount }} / 共 {{ totalCount }}</text>
       </view>
-      <text class="tiny head__hint">按食材名合并，勾选表示已买好</text>
+      <text class="tiny head__hint">AI 按采购区域汇总，勾选表示已买好</text>
     </view>
 
     <view v-if="loading" class="empty">加载中…</view>
-    <view v-else-if="!items.length" class="empty">这张订单暂时没有可用的用料清单</view>
+
+    <view v-else-if="isGenerating" class="card state">
+      <text class="state__title">AI 正在生成备菜清单</text>
+      <text class="state__hint">下单后自动生成，通常需要几秒；也可以点下方按钮刷新。</text>
+      <view class="state__action" @click="refreshStatus">
+        <text class="state__action-text">刷新状态</text>
+      </view>
+    </view>
+
+    <view v-else-if="isEmpty" class="card state">
+      <text class="state__title">{{ plan?.message || "这张订单暂时没有可用的用料清单" }}</text>
+      <text class="state__hint">订单菜品没有填写用料，无法生成采购清单。</text>
+    </view>
+
+    <view v-else-if="isClosed" class="card state">
+      <text class="state__title">{{ plan?.message || "订单已结束，备菜清单已清理" }}</text>
+      <text class="state__hint">订单完成、取消或无人接单后不再保留备菜清单。</text>
+    </view>
+
+    <view v-else-if="isFailed" class="card state">
+      <text class="state__title">{{ plan?.message || "备菜清单尚未生成或已过期" }}</text>
+      <text class="state__hint">可以重新生成，生成完成后回到本页刷新即可查看。</text>
+      <view class="state__action" :class="{ 'state__action--busy': regenerating }" @click="regenerate">
+        <text class="state__action-text">{{ regenerating ? "提交中…" : "重新生成" }}</text>
+      </view>
+    </view>
 
     <view v-else class="list">
-      <view
-        v-for="item in items"
-        :key="item.name"
-        class="card item"
-        :class="{ 'item--on': checked.has(item.name) }"
-        @click="toggle(item)"
-      >
-        <view class="item__check" :class="{ 'item__check--on': checked.has(item.name) }">
-          <text v-if="checked.has(item.name)">✓</text>
+      <view v-for="group in plan?.groups || []" :key="group.market" class="group">
+        <view class="group__head">
+          <text class="group__market">{{ group.market }}</text>
+          <text class="group__count">{{ group.items.length }} 项</text>
         </view>
-        <view class="item__main">
-          <text class="item__name">{{ item.name }}</text>
-          <view v-for="(source, index) in item.sources" :key="index" class="source">
-            <text class="source__dish">{{ source.dishName }}</text>
-            <text v-if="source.amount" class="source__amount">{{ source.amount }}</text>
+        <view
+          v-for="item in group.items"
+          :key="`${group.market}-${item.name}`"
+          class="card item"
+          :class="{ 'item--on': checked.has(item.name) }"
+          @click="toggle(item)"
+        >
+          <view class="item__check" :class="{ 'item__check--on': checked.has(item.name) }">
+            <text v-if="checked.has(item.name)">✓</text>
+          </view>
+          <view class="item__main">
+            <view class="row-between">
+              <text class="item__name">{{ item.name }}</text>
+              <text class="item__amount">{{ item.amount }}</text>
+            </view>
+            <view v-for="(detail, index) in item.details" :key="index" class="source">
+              <text class="source__dish">{{ detail.label }}</text>
+              <text v-if="detail.amount" class="source__amount">{{ detail.amount }}</text>
+            </view>
           </view>
         </view>
       </view>
@@ -188,8 +239,65 @@ function toggle(item: PrepItem) {
   margin-top: 10rpx;
 }
 
+.state {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.state__title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: $lg-ink;
+}
+
+.state__hint {
+  font-size: 24rpx;
+  color: $lg-ink-3;
+}
+
+.state__action {
+  align-self: flex-start;
+  margin-top: 6rpx;
+  padding: 12rpx 28rpx;
+  border-radius: 999rpx;
+  background-color: $lg-accent-soft;
+}
+
+.state__action--busy {
+  opacity: 0.6;
+}
+
+.state__action-text {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: $lg-accent;
+}
+
 .list {
   margin-top: 24rpx;
+}
+
+.group {
+  margin-bottom: 28rpx;
+}
+
+.group__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 8rpx 12rpx;
+}
+
+.group__market {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: $lg-ink;
+}
+
+.group__count {
+  font-size: 24rpx;
+  color: $lg-ink-3;
 }
 
 .item {
@@ -236,6 +344,12 @@ function toggle(item: PrepItem) {
   font-size: 28rpx;
   font-weight: 600;
   color: $lg-ink;
+}
+
+.item__amount {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: $lg-accent;
 }
 
 .source {

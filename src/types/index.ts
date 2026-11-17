@@ -18,6 +18,45 @@ export interface Ingredient {
   amount: string;
 }
 
+/** 备菜清单明细行：原始品种或来源菜品与对应数量 */
+export interface PrepPlanDetail {
+  label: string;
+  amount: string;
+}
+
+/** 备菜清单中合并后的食材条目 */
+export interface PrepPlanItem {
+  /** 合并后的规范名称，如「辣椒」 */
+  name: string;
+  /** 生活化购买数量，如「2 斤」「3 个」 */
+  amount: string;
+  /** 是否主料，true 在分组内排在前面 */
+  main: boolean;
+  details: PrepPlanDetail[];
+}
+
+/** 备菜清单的采购区域分组 */
+export interface PrepPlanGroup {
+  /** 采购区域，如肉摊、菜摊、水产摊 */
+  market: string;
+  items: PrepPlanItem[];
+}
+
+/**
+ * 一键备菜清单
+ *
+ * 由后端 AI 异步生成并缓存在 Redis（10 天），前端只读；
+ * status 为 GENERATING 时页面展示生成中，FAILED 时可重新生成，
+ * CLOSED 表示订单已结束且清单已清理，不再提供重新生成。
+ */
+export interface PrepPlan {
+  orderId: number;
+  status: "GENERATING" | "READY" | "FAILED" | "CLOSED";
+  generatedAt?: number;
+  message?: string;
+  groups: PrepPlanGroup[];
+}
+
 /** 菜品 */
 export interface Dish {
   dishId: number;

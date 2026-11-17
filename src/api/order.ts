@@ -1,4 +1,4 @@
-import type { Order, OrderAssignee, OrderNotification } from "@/types";
+import type { Order, OrderAssignee, OrderNotification, PrepPlan } from "@/types";
 import { request, requestPage, requestVoid } from "@/utils/request";
 
 export interface SubmitOrderItem {
@@ -66,4 +66,14 @@ export function finishOrder(orderId: number) {
 /** 聚合轮询通知与厨师待办，不传客户端身份 ID */
 export function pollOrderOverview() {
   return request<OrderNotifyOverview>({ url: "/meal/notify/overview" });
+}
+
+/** 该订单的 AI 备菜清单；未生成或已过期时 status=FAILED */
+export function prepPlan(orderId: number) {
+  return request<PrepPlan>({ url: `/meal/prep-plan/${orderId}` });
+}
+
+/** 重新生成该订单的备菜清单（后台线程执行，返回生成中占位） */
+export function regeneratePrepPlan(orderId: number) {
+  return request<PrepPlan>({ url: `/meal/prep-plan/${orderId}/regenerate`, method: "POST" });
 }
