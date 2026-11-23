@@ -7,6 +7,13 @@ export interface SubmitOrderItem {
   remark?: string;
 }
 
+/** 制作中订单保留的明细，省略的原明细会取消。 */
+export interface CookingOrderItemEdit {
+  itemId: number;
+  dishId: number;
+  count: number;
+}
+
 /** 通知聚合轮询结果；厨师额外返回待接单与制作中数量 */
 export interface OrderNotifyOverview {
   notifications: OrderNotification[];
@@ -59,8 +66,26 @@ export function refuseOrder(orderId: number) {
 }
 
 /** 标记完成 */
-export function finishOrder(orderId: number) {
-  return requestVoid({ url: `/meal/order/finish/${orderId}`, method: "PUT" });
+export function finishOrder(orderId: number, expectedVersion?: number) {
+  const query = expectedVersion == null ? "" : `?expectedVersion=${expectedVersion}`;
+  return requestVoid({ url: `/meal/order/finish/${orderId}${query}`, method: "PUT" });
+}
+
+/** 保存制作中的订单菜品。 */
+export function editCookingOrder(orderId: number, expectedVersion: number, items: CookingOrderItemEdit[]) {
+  return request<Order>({
+    url: `/meal/order/kitchen/${orderId}/items`,
+    method: "PUT",
+    data: { expectedVersion, items },
+  });
+}
+
+/** 接单厨师取消制作中的整张订单。 */
+export function cancelCookingOrder(orderId: number, expectedVersion: number) {
+  return requestVoid({
+    url: `/meal/order/kitchen/${orderId}/cancel?expectedVersion=${expectedVersion}`,
+    method: "PUT",
+  });
 }
 
 /** 聚合轮询通知与厨师待办，不传客户端身份 ID */

@@ -138,8 +138,10 @@ export interface Order {
   assignUserName?: string;
   /** 接单截止时间 */
   deadlineTime?: string;
-  /** 关闭原因：1用户取消 2超时 3全员拒绝 */
+  /** 关闭原因：1用户取消 2超时 3全员拒绝 4厨师取消 */
   closeReason?: string;
+  /** 服务端订单数据版本，用于防止覆盖另一处的修改 */
+  dataVersion?: number;
   items?: OrderItem[];
   /** 后端计算的已等待分钟数 */
   waitMinutes?: number;
@@ -152,7 +154,8 @@ export interface Order {
 /** 订单流转通知 */
 export interface OrderNotification {
   id: string;
-  type: "NEW_ORDER" | "ORDER_ACCEPTED" | "ORDER_COMPLETED" | "ORDER_RATED" | "ORDER_UNACCEPTED";
+  type: "NEW_ORDER" | "ORDER_ACCEPTED" | "ORDER_COMPLETED" | "ORDER_RATED" | "ORDER_UNACCEPTED"
+    | "ORDER_UPDATED" | "ORDER_CANCELED";
   orderId: number;
   title: string;
   content: string;

@@ -71,7 +71,7 @@ const ingredients = ref<Ingredient[]>([]);
 const steps = ref<string[]>([]);
 const tips = ref<string[]>([]);
 
-/** AI 更新：用户粘贴的完整做法 */
+/** AI 更新：新菜谱、修改要求或做法思路。 */
 const aiText = ref("");
 const aiUpdating = ref(false);
 
@@ -436,7 +436,7 @@ async function save() {
 async function aiUpdate() {
   const text = aiText.value.trim();
   if (!text) {
-    uni.showToast({ title: "请先输入这道菜的完整做法", icon: "none" });
+    uni.showToast({ title: "请粘贴菜谱或描述你想怎么改", icon: "none" });
     return;
   }
   if (aiUpdating.value) {
@@ -628,16 +628,16 @@ async function aiUpdate() {
 
       <GlassCard class="section ai">
         <text class="section-title">AI 更新</text>
-        <text class="ai__hint">粘贴这道菜的完整做法，AI 会提取简介、标签、用料、做法等并直接保存</text>
+        <text class="ai__hint">粘贴新菜谱，或说说你想怎么改。AI 会参考已保存的菜谱，在后台更新。</text>
         <textarea
           v-model="aiText"
           class="ai__input"
-          maxlength="5000"
-          placeholder="例如：五花肉切块焯水，冰糖炒糖色……"
+          maxlength="30000"
+          placeholder="例如：去掉洋葱，最后一步把收汁写清楚"
           placeholder-class="ph"
         />
         <GlassButton class="ai__btn" variant="ghost" :disabled="aiUpdating" @click="aiUpdate">
-          {{ aiUpdating ? "AI 处理中…" : "AI 更新并保存" }}
+          {{ aiUpdating ? "正在提交…" : "AI 更新" }}
         </GlassButton>
       </GlassCard>
 

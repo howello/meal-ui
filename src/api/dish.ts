@@ -66,9 +66,9 @@ export function regenerateDishCover(data: { name: string; imageDescription: stri
 }
 
 /**
- * AI 更新菜品：从完整做法中提取文本字段并在服务端异步落库
+ * AI 更新菜谱：自动判断新菜谱或修改要求，在服务端异步生成并保存。
  *
- * 接口校验权限后立即返回，提取与保存在线程池执行；调用成功后应返回详情页稍后刷新。
+ * 接口受理后立即返回任务 ID，详情页可稍后获取结果。
  */
 export function aiUpdateDish(data: { dishId: number; text: string }) {
   return request<{ taskId: string }>({ url: "/meal/dish/ai-update", method: "POST", data });

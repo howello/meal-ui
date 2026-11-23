@@ -92,7 +92,7 @@ function pollAiUpdate() {
           await loadDish(true);
         }
         if (version !== aiPollVersion) return;
-        uni.showToast({ title: result.state === "SUCCEEDED" ? "AI 更新已完成" : result.message, icon: "none" });
+        uni.showToast({ title: result.message || "AI 更新已结束", icon: "none" });
         return;
       }
     } catch (e) {
