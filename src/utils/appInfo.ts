@@ -8,8 +8,8 @@
 const BUILD_INFO = {
   name: "吃了么",
   description: "家庭点餐端",
-  versionName: "1.0.29",
-  versionCode: "132",
+  versionName: "1.0.30",
+  versionCode: "133",
   /** Android 包名 */
   androidPackage: "com.wyantao.meal",
   /** uni-app 应用标识（DCloud AppID） */
