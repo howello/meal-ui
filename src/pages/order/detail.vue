@@ -75,6 +75,8 @@ const timeline = computed(() => {
     reached = 3;
   } else if (status === ORDER_STATUS.FINISHED) {
     reached = 4;
+  } else if (status === ORDER_STATUS.CANCELED && order.value?.acceptTime) {
+    reached = 3;
   } else if (status === ORDER_STATUS.CANCELED || status === ORDER_STATUS.UNACCEPTED) {
     reached = 1;
   }
@@ -100,7 +102,7 @@ const statusHint = computed(() => {
       ? "超过接单时间仍无人接单，可以重新下单"
       : "没有人接这张单，可以重新下单";
   }
-  return "订单已取消";
+  return current.closeReason === "4" ? "接单厨师已取消订单" : "订单已取消";
 });
 
 /**
