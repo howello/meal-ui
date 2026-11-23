@@ -7,9 +7,9 @@ export interface SubmitOrderItem {
   remark?: string;
 }
 
-/** 制作中订单保留的明细，省略的原明细会取消。 */
+/** 省略明细 ID 表示加菜，未提交的原明细会取消。 */
 export interface CookingOrderItemEdit {
-  itemId: number;
+  itemId?: number;
   dishId: number;
   count: number;
 }

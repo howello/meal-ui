@@ -24,23 +24,27 @@ const doneMap = reactive<Record<number, (string | number)[]>>({});
 let loadSequence = 0;
 
 interface DraftItem extends OrderItem {
-  itemId: number;
+  key: number;
   dishId: number;
   removed: boolean;
 }
 
 const editingOrder = ref<Order | null>(null);
 const draft = ref<DraftItem[]>([]);
+let nextDraftKey = -1;
 const remainingItems = computed(() => draft.value.filter((item) => !item.removed));
 const activeMutation = ref<number | null>(null);
-const replacementItemId = ref<number | null>(null);
+const pickerTarget = ref<number | "add" | null>(null);
+const editVersionChanged = computed(() => editingOrder.value !== null
+  && orders.value.find((order) => order.orderId === editingOrder.value?.orderId)?.dataVersion
+    !== editingOrder.value.dataVersion);
 const dishOptions = ref<Dish[]>([]);
 const dishLoading = ref(false);
 const dishSearchFailed = ref(false);
 const dishKeyword = ref("");
 const visibleDishes = computed(() => {
   const keyword = dishKeyword.value.trim().toLowerCase();
-  const currentDishId = draft.value.find((item) => item.itemId === replacementItemId.value)?.dishId;
+  const currentDishId = draft.value.find((item) => item.key === pickerTarget.value)?.dishId;
   return dishOptions.value
     .filter((dish) => dish.dishId !== currentDishId && dish.name.toLowerCase().includes(keyword))
     .slice(0, 30);
@@ -103,7 +107,8 @@ const refreshOrders = createOrderRefreshThrottle(loadOrders);
 /** 只响应可能改变制作中列表的订单流转通知 */
 function handleNotifications(notifications: OrderNotification[]) {
   const affectsCooking = notifications.some((item) =>
-    item.type === "ORDER_ACCEPTED" || item.type === "ORDER_COMPLETED" || item.type === "ORDER_RATED",
+    item.type === "ORDER_ACCEPTED" || item.type === "ORDER_COMPLETED" || item.type === "ORDER_RATED"
+      || item.type === "ORDER_UPDATED" || item.type === "ORDER_CANCELED",
   );
   if (affectsCooking) {
     refreshOrders.trigger();
@@ -193,9 +198,9 @@ async function completeOrder(order: Order) {
   }
 }
 
-/** 在当前订单卡片内编辑，保存前只修改草稿。 */
+/** 打开订单编辑弹窗，保存前只修改草稿。 */
 function startEdit(order: Order) {
-  if (activeMutation.value !== null) {
+  if (activeMutation.value !== null || editingOrder.value) {
     return;
   }
   const items = order.items || [];
@@ -203,8 +208,8 @@ function startEdit(order: Order) {
     uni.showToast({ title: "订单明细不可用，请刷新后重试", icon: "none" });
     return;
   }
-  draft.value = items.map((item) => ({ ...item, itemId: item.itemId!, dishId: item.dishId!, removed: false }));
-  replacementItemId.value = null;
+  draft.value = items.map((item) => ({ ...item, key: item.itemId!, dishId: item.dishId!, removed: false }));
+  pickerTarget.value = null;
   editingOrder.value = order;
 }
 
@@ -212,16 +217,22 @@ function startEdit(order: Order) {
 function closeEdit() {
   editingOrder.value = null;
   draft.value = [];
-  replacementItemId.value = null;
+  pickerTarget.value = null;
 }
 
-/** 换菜使用现有家庭菜单。 */
-async function openReplacement(item: DraftItem) {
-  replacementItemId.value = item.itemId;
+/** 加菜和换菜共用同一个家庭菜单选择界面。 */
+async function openDishPicker(target: number | "add") {
+  if (target === "add" && remainingItems.value.length >= 100) {
+    uni.showToast({ title: "每单最多100道菜", icon: "none" });
+    return;
+  }
+  pickerTarget.value = target;
   dishKeyword.value = "";
+  if (dishLoading.value || dishOptions.value.length) {
+    return;
+  }
   dishSearchFailed.value = false;
   dishLoading.value = true;
-  dishOptions.value = [];
   try {
     const { rows } = await listDish({});
     dishOptions.value = rows;
@@ -232,22 +243,38 @@ async function openReplacement(item: DraftItem) {
   }
 }
 
-/** 将所选菜品写入草稿，保留当前份数。 */
-function pickReplacement(item: DraftItem, dish: Dish) {
-  item.dishId = dish.dishId;
-  item.dishName = dish.name;
-  item.dishCover = dish.cover;
-  replacementItemId.value = null;
+/** 换菜保留原份数，加菜以一份开始。 */
+function pickDish(dish: Dish) {
+  const target = pickerTarget.value;
+  if (target === "add") {
+    draft.value.push({
+      key: nextDraftKey--, dishId: dish.dishId, dishName: dish.name, dishCover: dish.cover, count: 1, removed: false,
+    });
+  } else {
+    const item = draft.value.find((line) => line.key === target);
+    if (item) {
+      item.dishId = dish.dishId;
+      item.dishName = dish.name;
+      item.dishCover = dish.cover;
+    }
+  }
+  pickerTarget.value = null;
+}
+
+/** 恢复移除的菜品时仍需满足订单明细上限。 */
+function restoreDish(item: DraftItem) {
+  if (remainingItems.value.length >= 100) {
+    uni.showToast({ title: "每单最多100道菜", icon: "none" });
+    return;
+  }
+  item.removed = false;
 }
 
 /** 一次提交本单所有菜品变更。 */
 async function saveEdit() {
   const order = editingOrder.value;
-  if (!order || order.dataVersion == null || activeMutation.value !== null) {
-    return;
-  }
-  if (!remainingItems.value.length) {
-    await confirmCancel(order);
+  if (!order || order.dataVersion == null || activeMutation.value !== null || editVersionChanged.value
+      || !remainingItems.value.length) {
     return;
   }
   const items = remainingItems.value.map(({ itemId, dishId, count }) => ({ itemId, dishId, count: Number(count) }));
@@ -270,9 +297,9 @@ async function saveEdit() {
   }
 }
 
-/** 整单取消需要确认，取消最后一道菜也走同一个入口。 */
+/** 整单取消需要确认，取消最后一道菜时仍可返回草稿继续加菜。 */
 async function confirmCancel(order: Order) {
-  if (order.dataVersion == null || activeMutation.value !== null) {
+  if (order.dataVersion == null || activeMutation.value !== null || editVersionChanged.value) {
     return;
   }
   activeMutation.value = order.orderId;
@@ -334,93 +361,48 @@ function cookText(order: Order): string {
       <view v-for="order in orders" :key="order.orderId" class="card order">
         <view class="row-between">
           <text class="order__who">{{ order.userName || "家人" }} 的订单</text>
-          <text class="timer">{{ cookText(order) }}</text>
+          <view class="order__meta">
+            <text class="timer">{{ cookText(order) }}</text>
+            <button class="order__edit" aria-label="编辑菜品" :disabled="activeMutation !== null || !!editingOrder"
+              @click="startEdit(order)">
+              <wd-icon name="edit-outline" size="34rpx" />
+            </button>
+          </view>
         </view>
 
-        <template v-if="editingOrder?.orderId !== order.orderId">
+        <view
+          v-for="item in order.items || []"
+          :key="item.itemId"
+          class="item"
+          :class="{ 'item--done': isDone(order, item) }"
+          @click="openDish(item)"
+        >
+          <CachedImage v-if="item.dishCover" class="item__cover" :src="item.dishCover" mode="aspectFill" />
+          <view v-else class="item__cover item__cover--ph">{{ item.dishName }}</view>
+          <view class="item__main">
+            <text class="item__name">{{ item.dishName }} × {{ item.count }}</text>
+            <text v-if="item.remark" class="item__remark">备注：{{ item.remark }}</text>
+          </view>
           <view
-            v-for="item in order.items || []"
-            :key="item.itemId"
-            class="item"
-            :class="{ 'item--done': isDone(order, item) }"
-            @click="openDish(item)"
+            class="item__done"
+            :class="{ 'item__done--on': isDone(order, item) }"
+            @click.stop="toggleDone(order, item)"
           >
-            <CachedImage v-if="item.dishCover" class="item__cover" :src="item.dishCover" mode="aspectFill" />
-            <view v-else class="item__cover item__cover--ph">{{ item.dishName }}</view>
-            <view class="item__main">
-              <text class="item__name">{{ item.dishName }} × {{ item.count }}</text>
-              <text v-if="item.remark" class="item__remark">备注：{{ item.remark }}</text>
-            </view>
-            <view
-              class="item__done"
-              :class="{ 'item__done--on': isDone(order, item) }"
-              @click.stop="toggleDone(order, item)"
-            >
-              <text class="item__done-text">{{ isDone(order, item) ? "✓ 已完成" : "标记完成" }}</text>
-            </view>
+            <text class="item__done-text">{{ isDone(order, item) ? "✓ 已完成" : "标记完成" }}</text>
           </view>
+        </view>
 
-          <view class="note">整体备注：{{ order.orderRemark || "无" }}</view>
+        <view class="note">整体备注：{{ order.orderRemark || "无" }}</view>
 
-          <view class="order__actions">
-            <view class="order__progress">已备 {{ doneCount(order) }}/{{ totalCount(order) }}</view>
-            <view class="prep-btn" @click="goPrep(order)">一键备菜</view>
-            <button
-              v-if="totalCount(order) > 0 && doneCount(order) === totalCount(order)"
-              class="action-button action-button--primary"
-              :disabled="activeMutation !== null || !!editingOrder"
-              @click="completeOrder(order)"
-            >确认出餐</button>
-          </view>
-          <view class="edit-actions">
-            <button class="action-button" :disabled="activeMutation !== null || !!editingOrder" @click="startEdit(order)">
-              编辑菜品
-            </button>
-            <button class="action-button action-button--danger" :disabled="activeMutation !== null || !!editingOrder"
-              @click="confirmCancel(order)">取消订单</button>
-          </view>
-        </template>
-
-        <view v-else class="order-editor">
-          <view v-for="item in draft" :key="item.itemId" class="edit-item">
-            <text class="item__name" :class="{ 'edit-item--removed': item.removed }">{{ item.dishName }}</text>
-            <view v-if="!item.removed" class="edit-actions">
-              <label class="quantity">
-                <text>份数</text>
-                <input v-model="item.count" type="number" maxlength="2" :disabled="activeMutation !== null" />
-              </label>
-              <button class="action-button" :disabled="activeMutation !== null"
-                @click="replacementItemId === item.itemId ? replacementItemId = null : openReplacement(item)">
-                {{ replacementItemId === item.itemId ? "收起" : "换菜" }}
-              </button>
-              <button class="action-button action-button--danger" :disabled="activeMutation !== null"
-                @click="item.removed = true">取消这道菜</button>
-            </view>
-            <view v-else class="edit-actions">
-              <text class="order__progress">待取消</text>
-              <button class="action-button" :disabled="activeMutation !== null" @click="item.removed = false">恢复</button>
-            </view>
-            <view v-if="!item.removed && replacementItemId === item.itemId" class="dish-picker">
-              <input v-model="dishKeyword" class="dish-search" placeholder="搜索替换菜品" :disabled="activeMutation !== null" />
-              <text v-if="dishLoading" class="order__progress">加载中…</text>
-              <button v-else-if="dishSearchFailed" class="action-button" @click="openReplacement(item)">重新加载菜品</button>
-              <scroll-view v-else-if="visibleDishes.length" scroll-y class="dish-options">
-                <button v-for="dish in visibleDishes" :key="dish.dishId" class="dish-option"
-                  :disabled="activeMutation !== null" @click="pickReplacement(item, dish)">{{ dish.name }}</button>
-              </scroll-view>
-              <text v-else class="order__progress">没有可替换的菜品</text>
-            </view>
-          </view>
-          <text v-if="editingOrder.dataVersion !== order.dataVersion" class="order__progress">
-            订单已更新，请退出编辑后重新打开。
-          </text>
-          <view class="edit-actions">
-            <button class="action-button" :disabled="activeMutation !== null" @click="closeEdit">退出编辑</button>
-            <button class="action-button" :class="remainingItems.length ? 'action-button--primary' : 'action-button--danger'"
-              :disabled="activeMutation !== null || editingOrder.dataVersion !== order.dataVersion" @click="saveEdit">
-              {{ remainingItems.length ? "保存变更" : "取消整单" }}
-            </button>
-          </view>
+        <view class="order__actions">
+          <view class="order__progress">已备 {{ doneCount(order) }}/{{ totalCount(order) }}</view>
+          <view class="prep-btn" @click="goPrep(order)">一键备菜</view>
+          <button
+            v-if="totalCount(order) > 0 && doneCount(order) === totalCount(order)"
+            class="action-button action-button--primary"
+            :disabled="activeMutation !== null || !!editingOrder"
+            @click="completeOrder(order)"
+          >确认出餐</button>
         </view>
       </view>
 
@@ -428,6 +410,87 @@ function cookText(order: Order): string {
     </scroll-view>
 
     <TabBar active="kitchen-cooking" />
+    <wd-popup :model-value="!!editingOrder" position="bottom" :close-on-click-modal="false" :z-index="800"
+      safe-area-inset-bottom modal-style="background-color:var(--lg-mask,rgba(30,35,70,.28))"
+      custom-style="background-color:var(--order-editor-surface,#f7f8ff);border-radius:26px 26px 0 0;overflow:hidden;box-shadow:var(--lg-shadow)">
+      <view v-if="editingOrder" class="order-editor" role="dialog" aria-modal="true" aria-labelledby="order-editor-title">
+        <view class="editor-header">
+          <view class="editor-heading">
+            <text id="order-editor-title" class="editor-title">
+              {{ pickerTarget === null ? "编辑菜品" : pickerTarget === "add" ? "添加菜品" : "选择替换菜品" }}
+            </text>
+            <text v-if="pickerTarget === null" class="editor-caption">
+              {{ editingOrder.userName || "家人" }} 的订单 · {{ remainingItems.length }} 道菜
+            </text>
+          </view>
+          <button v-if="pickerTarget !== null" class="action-button" @click="pickerTarget = null">返回编辑</button>
+          <button v-else class="icon-button" aria-label="关闭编辑" :disabled="activeMutation !== null" @click="closeEdit">
+            <wd-icon name="close" size="34rpx" />
+          </button>
+        </view>
+
+        <scroll-view :key="pickerTarget === null ? 'draft' : 'picker'" scroll-y class="editor-scroll"
+          :class="{
+            'editor-scroll--single': pickerTarget === null && draft.length === 1,
+            'editor-scroll--pair': pickerTarget === null && draft.length === 2,
+          }">
+          <template v-if="pickerTarget === null">
+            <view v-for="item in draft" :key="item.key" class="edit-item" :class="{ 'edit-item--removed': item.removed }">
+              <text class="edit-item__name">{{ item.dishName }}</text>
+              <view v-if="!item.removed" class="edit-actions">
+                <view class="quantity">
+                  <text>份数</text>
+                  <wd-input-number v-model="item.count" :min="1" :max="99" input-width="72rpx"
+                    :disabled="activeMutation !== null" />
+                </view>
+                <view class="edit-item__buttons">
+                  <button class="action-button" :disabled="activeMutation !== null" @click="openDishPicker(item.key)">
+                    换菜
+                  </button>
+                  <button class="action-button action-button--danger" :disabled="activeMutation !== null"
+                    @click="item.removed = true">取消这道菜</button>
+                </view>
+              </view>
+              <view v-else class="edit-actions">
+                <text class="editor-caption">待取消</text>
+                <button class="action-button" :disabled="activeMutation !== null" @click="restoreDish(item)">恢复</button>
+              </view>
+            </view>
+            <button class="add-dish" :disabled="activeMutation !== null || remainingItems.length >= 100"
+              @click="openDishPicker('add')">
+              <wd-icon name="add" size="34rpx" />
+              <text>加菜</text>
+            </button>
+          </template>
+
+          <view v-else class="dish-picker">
+            <input v-model="dishKeyword" class="dish-search" placeholder="搜索菜品" />
+            <text v-if="dishLoading" class="editor-caption">加载中…</text>
+            <button v-else-if="dishSearchFailed" class="action-button" @click="openDishPicker(pickerTarget)">
+              重新加载菜品
+            </button>
+            <template v-else-if="visibleDishes.length">
+              <button v-for="dish in visibleDishes" :key="dish.dishId" class="dish-option"
+                @click="pickDish(dish)">{{ dish.name }}</button>
+            </template>
+            <text v-else class="editor-caption">没有找到可选菜品</text>
+          </view>
+        </scroll-view>
+
+        <view v-if="pickerTarget === null" class="editor-footer">
+          <text v-if="editVersionChanged" class="editor-caption">订单已更新，请关闭后重新编辑。</text>
+          <text v-else-if="!remainingItems.length" class="editor-caption">请加菜、恢复菜品或取消整单。</text>
+          <view class="footer-actions">
+            <button class="action-button action-button--danger" :disabled="activeMutation !== null || editVersionChanged"
+              @click="confirmCancel(editingOrder)">取消订单</button>
+            <button class="action-button action-button--primary"
+              :disabled="activeMutation !== null || editVersionChanged || !remainingItems.length" @click="saveEdit">
+              保存变更
+            </button>
+          </view>
+        </view>
+      </view>
+    </wd-popup>
     <AppDialog />
   </view>
 </template>
@@ -476,9 +539,13 @@ function cookText(order: Order): string {
 }
 
 .order__who {
+  min-width: 0;
+  overflow: hidden;
   font-size: 28rpx;
   font-weight: 700;
   color: $lg-ink;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .timer {
@@ -488,6 +555,7 @@ function cookText(order: Order): string {
   padding: 6rpx 16rpx;
   border-radius: 999rpx;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .item {
@@ -618,63 +686,7 @@ function cookText(order: Order): string {
   border: 1rpx solid $lg-accent-border;
 }
 
-.order-editor,
-.edit-item,
-.dish-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
-
-.order-editor {
-  margin-top: 20rpx;
-}
-
-.edit-item {
-  padding: 16rpx 0;
-  border-bottom: 1rpx solid $lg-border;
-}
-
-.edit-item--removed {
-  text-decoration: line-through;
-  color: $lg-ink-2;
-}
-
-.edit-actions,
-.quantity {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12rpx;
-}
-
-.order > .edit-actions {
-  margin-top: 16rpx;
-}
-
-.quantity {
-  font-size: 24rpx;
-  color: $lg-ink;
-}
-
-.quantity input,
-.dish-search {
-  height: 64rpx;
-  padding: 0 16rpx;
-  border: 1rpx solid $lg-border;
-  border-radius: 14rpx;
-  color: $lg-ink;
-  background: $lg-fill-2;
-  font-size: 26rpx;
-}
-
-.quantity input {
-  width: 76rpx;
-  text-align: center;
-}
-
-.action-button,
-.dish-option {
+.action-button {
   margin: 0;
   padding: 0 20rpx;
   min-height: 64rpx;
@@ -687,7 +699,10 @@ function cookText(order: Order): string {
 }
 
 .action-button::after,
-.dish-option::after {
+.order__edit::after,
+.dish-option::after,
+.icon-button::after,
+.add-dish::after {
   border: 0;
 }
 
@@ -696,17 +711,261 @@ function cookText(order: Order): string {
   color: #fff;
 }
 
-.action-button--danger {
-  color: $meal-danger;
-  border-color: $meal-danger;
+.app-fixed {
+  --order-editor-surface: #f7f8ff;
+  --order-editor-card: #fff;
+  --order-editor-accent: #9d3819;
+  --order-editor-danger: #9c2631;
 }
 
-.dish-options {
-  max-height: 300rpx;
+.app-fixed.theme-dark {
+  --order-editor-surface: #191c23;
+  --order-editor-card: #242730;
+  --order-editor-accent: #ffb194;
+  --order-editor-danger: #ffadb4;
+}
+
+.order__meta,
+.editor-header,
+.footer-actions,
+.edit-item__buttons,
+.edit-actions,
+.quantity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.order__meta,
+.edit-item__buttons {
+  flex-shrink: 0;
+}
+
+.edit-item__buttons {
+  gap: 6px;
+}
+
+.order__edit,
+.order-editor .action-button,
+.icon-button,
+.add-dish,
+.dish-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 68rpx;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid $lg-line;
+  border-radius: 11px;
+  background: var(--order-editor-card);
+  color: $lg-ink;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.order__edit,
+.add-dish {
+  gap: 6px;
+  border-color: $lg-accent-border;
+  background: $lg-accent-soft;
+  color: var(--order-editor-accent);
+}
+
+.order__edit {
+  width: 66rpx;
+  min-height: 66rpx;
+  padding: 0;
+  border-radius: 999px;
+  box-shadow: $lg-edge;
+}
+
+.edit-item__buttons .action-button {
+  padding: 0 8px;
+}
+
+.order-editor {
+  padding: 0 16px 14px;
+  background: var(--order-editor-surface);
+  color: $lg-ink;
+}
+
+.editor-header {
+  justify-content: space-between;
+  padding: 17px 0 13px;
+  border-bottom: 1px solid $lg-line;
+}
+
+.editor-heading {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.editor-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.editor-caption {
+  color: $lg-ink-2;
+  font-size: 26rpx;
+  line-height: 1.4;
+}
+
+.editor-scroll {
+  height: 55vh;
+  max-height: 55vh;
+}
+
+.editor-scroll--single {
+  height: 214px;
+}
+
+.editor-scroll--pair {
+  height: 338px;
+}
+
+.edit-item,
+.dish-picker,
+.editor-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.edit-item {
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid $lg-line;
+  border-radius: 16px;
+  background: var(--order-editor-card);
+}
+
+.edit-item__name {
+  font-size: 30rpx;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.edit-item--removed .edit-item__name {
+  color: $lg-ink-2;
+  text-decoration: line-through;
+}
+
+.edit-actions {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.quantity {
+  color: $lg-ink-2;
+  font-size: 26rpx;
+}
+
+.quantity :deep(.wd-input-number) {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid $lg-line;
+  border-radius: 11px;
+  background: var(--order-editor-surface);
+}
+
+.quantity :deep(.wd-input-number__action) {
+  width: 68rpx;
+  height: 68rpx;
+  color: var(--order-editor-accent);
+}
+
+.quantity :deep(.wd-input-number__action.is-disabled) {
+  color: $lg-ink-2;
+  opacity: 0.45;
+}
+
+.quantity :deep(.wd-input-number__action::after),
+.quantity :deep(.wd-input-number__input-border) {
+  display: none;
+}
+
+.quantity :deep(.wd-input-number__input) {
+  height: 68rpx;
+  border-right: 1px solid $lg-line;
+  border-left: 1px solid $lg-line;
+  background: var(--order-editor-card);
+  color: $lg-ink;
+  font-size: 30rpx;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.quantity :deep(.wd-input-number__action-icon) {
+  width: 30rpx;
+  height: 30rpx;
+  font-size: 30rpx;
+}
+
+.icon-button {
+  width: 68rpx;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.order-editor .action-button--danger {
+  background: $lg-danger-soft;
+  color: var(--order-editor-danger);
+}
+
+.add-dish {
+  width: 100%;
+  min-height: 78rpx;
+  margin: 10px 0;
+  border-style: dashed;
+  font-size: 28rpx;
+}
+
+.dish-picker {
+  padding: 10px 0;
+}
+
+.dish-search {
+  height: 80rpx;
+  padding: 0 12px;
+  border: 1px solid $lg-line;
+  border-radius: 11px;
+  background: var(--order-editor-card);
+  color: $lg-ink;
+  font-size: 28rpx;
 }
 
 .dish-option {
   width: 100%;
-  text-align: left;
+  justify-content: flex-start;
+  min-height: 80rpx;
+}
+
+.editor-footer {
+  padding-top: 12px;
+  border-top: 1px solid $lg-line;
+}
+
+.footer-actions .action-button {
+  flex: 1;
+  min-height: 84rpx;
+  border-radius: 999px;
+  font-size: 28rpx;
+}
+
+.order-editor .action-button--primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, $lg-accent, $lg-accent-2);
+  color: #2e170e;
+}
+
+.order-editor button[disabled] {
+  opacity: 0.55;
 }
 </style>

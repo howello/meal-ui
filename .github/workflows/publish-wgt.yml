@@ -59,8 +59,8 @@ jobs:
       - name: 安装 Node
         uses: actions/setup-node@v4
         with:
-          # Vite 5 要求 Node ^18 或 >=20
-          node-version: "20"
+          # 当前 uni-app CLI 要求 Node.js 22.12 或更高版本。
+          node-version: "22"
           cache: npm
 
       - name: 安装依赖
